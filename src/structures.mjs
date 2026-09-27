@@ -7,18 +7,18 @@
 //   structures: [...]             — per SCENE: placed once in world space (Thread's whole frame)
 // Files are resolved relative to the layout file. Units: `scaleToMM` (STL/OBJ default 1 = already
 // mm; glTF is metres, default 1000).
-import path from "node:path";
+import { defaultVFS, basename, extname } from "./vfs.mjs";
 
 const MIME = { stl: "model/stl", glb: "model/gltf-binary", gltf: "model/gltf+json", obj: "text/plain" };
-export const structureFormat = (file) => (String(file).match(/\.(\w+)$/)?.[1] || "").toLowerCase();
+export const structureFormat = (file) => extname(String(file));
 
-export function resolveStructure(s, { baseDir } = {}, parent = null, name = null) {
+export function resolveStructure(s, { baseDir, vfs } = {}, parent = null, name = null) {
   if (!s || !s.file) throw new Error("structure needs a `file`");
-  const file = path.resolve(baseDir || process.cwd(), s.file);
+  const file = (vfs || defaultVFS(baseDir)).resolve(s.file);
   const format = (s.format || structureFormat(file)).toLowerCase();
   if (!MIME[format]) throw new Error(`structure "${s.file}": unsupported format "${format}" (stl, glb, gltf, obj)`);
   return {
-    name: s.name || name || path.basename(file),
+    name: s.name || name || basename(file),
     file, format,
     scaleToMM: s.scaleToMM ?? (format === "glb" || format === "gltf" ? 1000 : 1),
     pos: s.pos || [0, 0, 0],

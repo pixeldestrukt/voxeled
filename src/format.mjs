@@ -3,7 +3,8 @@
 // A scene is the source of truth: an array of pixels, each carrying at minimum a world
 // position and an emission normal, plus optional domain coordinates (here s,v). Addressing
 // is index-implied for v0 (pixel i → byte offset i*3); explicit per-fixture patch comes later.
-import { readFileSync, writeFileSync } from "node:fs";
+let fs = null; // Node only — saveScene/loadScene; the rest of this module is pure
+if (typeof process !== "undefined" && process.versions?.node) fs = await import("node:fs");
 
 export const VXL_VERSION = "0.0.1";
 
@@ -12,12 +13,12 @@ export function buildScene({ name, units = "mm", pixels, meta = {} }) {
 }
 
 export function saveScene(path, scene) {
-  writeFileSync(path, JSON.stringify(scene));
+  fs.writeFileSync(path, JSON.stringify(scene));
   return path;
 }
 
 export function loadScene(path) {
-  return JSON.parse(readFileSync(path, "utf8"));
+  return JSON.parse(fs.readFileSync(path, "utf8"));
 }
 
 // Axis-aligned bounds + centre of a scene's pixels — handy for framing a camera / normalising patterns.

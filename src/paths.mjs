@@ -5,18 +5,17 @@
 // (thread-3d/model/scripts/place_leds.py). Here that becomes data: a layout names its paths
 // (inline points, or loaded from a JSON file such as thread-3d's tubes.json), and fixtures /
 // generators reference them by name.
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { sub, add, scale, dot, cross, norm, len } from "./vec.mjs";
+import { defaultVFS } from "./vfs.mjs";
 
 // ── loading: `paths: { name: [[x,y,z],…] | { file, index|key, scaleToMM } }` ──────────────
-export function loadPaths(spec, { baseDir } = {}) {
+export function loadPaths(spec, { baseDir, vfs } = {}) {
   const out = {};
+  const fs = vfs || defaultVFS(baseDir);
   for (const [name, v] of Object.entries(spec || {})) {
     if (Array.isArray(v)) { out[name] = v.map((p) => [+p[0], +p[1], +p[2]]); continue; }
     if (!v || !v.file) throw new Error(`path "${name}": give inline points or { file }`);
-    const file = path.resolve(baseDir || process.cwd(), v.file);
-    const data = JSON.parse(readFileSync(file, "utf8"));
+    const data = JSON.parse(fs.text(v.file));
     let pts;
     if (Array.isArray(data)) {
       const item = v.index != null ? data[v.index] : data[0];

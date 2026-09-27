@@ -12,8 +12,7 @@
 // The viewer (V) puts the camera at the vantage's eye, wraps the photo around it, and renders the
 // LEDs / structures / simulator on top — so you see the piece from that spot, at the right size and
 // bearing. A Street View cubemap is one source; a night 360° shot from your phone is a better one.
-import path from "node:path";
-import { existsSync } from "node:fs";
+import { defaultVFS, joinPath, extname } from "./vfs.mjs";
 
 const R_EARTH = 6371000; // m
 const D2R = Math.PI / 180;
@@ -45,7 +44,7 @@ export function localToGeo([x, , z], site) {
 }
 
 const IMG = { jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp" };
-const ext = (f) => (String(f).match(/\.(\w+)$/)?.[1] || "").toLowerCase();
+const ext = (f) => extname(String(f));
 export const CUBE_FACES = ["n", "e", "s", "w", "u", "d"];
 
 export function resolveSite(site) {
@@ -54,7 +53,8 @@ export function resolveSite(site) {
   return { lat: site.lat, lon: site.lon, headingDeg: site.headingDeg || 0, groundMM: site.groundMM || 0 };
 }
 
-export function resolveVantages(list, { baseDir, site } = {}) {
+export function resolveVantages(list, { baseDir, site, vfs } = {}) {
+  const fs = vfs || defaultVFS(baseDir);
   return (list || []).map((v, i) => {
     const name = v.name || `vantage-${i}`;
     let pos;
@@ -65,14 +65,12 @@ export function resolveVantages(list, { baseDir, site } = {}) {
       pos = [x, (site.groundMM || 0) + (v.eyeHeightMM ?? 1600), z];
     } else throw new Error(`vantage "${name}" needs \`pos\` [x,y,z] mm or \`lat\`/\`lon\``);
     const out = { name, pos: pos.map((x) => +x.toFixed(1)), headingDeg: v.headingDeg || 0, fovDeg: v.fovDeg || 60, ...(v.lat != null ? { lat: v.lat, lon: v.lon } : {}) };
-    const dir = baseDir || process.cwd();
     if (v.image) {
-      const file = path.resolve(dir, v.image);
+      const file = fs.resolve(v.image);
       if (!IMG[ext(file)]) throw new Error(`vantage "${name}": image must be jpg/png/webp`);
       out.image = { file, format: ext(file) };
     } else if (v.cube) {
-      const cdir = path.resolve(dir, v.cube);
-      const found = CUBE_FACES.map((f) => ["jpg", "jpeg", "png", "webp"].map((e) => path.join(cdir, `${f}.${e}`)).find(existsSync));
+      const found = CUBE_FACES.map((f) => { const rel = ["jpg", "jpeg", "png", "webp"].map((e) => joinPath(v.cube, `${f}.${e}`)).find((r) => fs.has(r)); return rel ? fs.resolve(rel) : null; });
       const missing = CUBE_FACES.filter((_, k) => !found[k]);
       if (missing.length) throw new Error(`vantage "${name}": cube dir ${v.cube} is missing faces ${missing.join(", ")} (need n e s w u d .jpg/.png)`);
       out.cube = Object.fromEntries(CUBE_FACES.map((f, k) => [f, { file: found[k], format: ext(found[k]) }]));

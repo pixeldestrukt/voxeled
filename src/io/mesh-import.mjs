@@ -13,22 +13,24 @@
 // Proven on the Thread sculpture's SolidWorks export: 7,260 islands × 12 triangles = every chip.
 import { norm, sub, dot } from "../vec.mjs";
 import { gltfToTriangles } from "./gltf-import.mjs";
+import { u8, view, decode } from "../bytes.mjs";
 
 // ── mesh readers → flat triangle soup (9 floats per triangle) ────────────────────────
 export function parseSTL(buf) {
   if (buf.length >= 84) {
-    const n = buf.readUInt32LE(80);
+    const dv = view(buf);
+    const n = dv.getUint32(80, true);
     if (84 + 50 * n === buf.length) { // binary
       const out = new Float64Array(n * 9);
       for (let i = 0; i < n; i++) {
         const o = 84 + i * 50 + 12; // skip the facet normal
-        for (let k = 0; k < 9; k++) out[i * 9 + k] = buf.readFloatLE(o + k * 4);
+        for (let k = 0; k < 9; k++) out[i * 9 + k] = dv.getFloat32(o + k * 4, true);
       }
       return out;
     }
   }
   // ASCII: every "vertex x y z" line; three per facet
-  const text = buf.toString("latin1");
+  const text = decode(buf, "latin1");
   const out = [];
   const re = /vertex\s+([-+\d.eE]+)\s+([-+\d.eE]+)\s+([-+\d.eE]+)/g;
   let m;
@@ -57,9 +59,10 @@ export function parseOBJ(text) {
 // Sniff the format (magic / extension / content) and return triangles.
 export function meshToTriangles(buffer, { format, file = "", scaleToMM = 1 } = {}) {
   const ext = (file.match(/\.(\w+)$/)?.[1] || "").toLowerCase();
-  const fmt = format || (buffer.length > 4 && buffer.toString("latin1", 0, 4) === "glTF" ? "glb" : ext === "obj" ? "obj" : ext === "stl" ? "stl" : /^\s*(v|f)\s/m.test(buffer.toString("latin1", 0, 2000)) ? "obj" : "stl");
+  buffer = u8(buffer);
+  const fmt = format || (buffer.length > 4 && decode(buffer, "latin1", 0, 4) === "glTF" ? "glb" : ext === "obj" ? "obj" : ext === "stl" ? "stl" : /^\s*(v|f)\s/m.test(decode(buffer, "latin1", 0, Math.min(2000, buffer.length))) ? "obj" : "stl");
   if (fmt === "glb") return gltfToTriangles(buffer, { scaleToMM: scaleToMM * 1000 }); // glTF is metres
-  const tris = fmt === "obj" ? parseOBJ(buffer.toString("utf8")) : parseSTL(buffer);
+  const tris = fmt === "obj" ? parseOBJ(decode(buffer, "utf-8")) : parseSTL(buffer);
   if (scaleToMM !== 1) for (let i = 0; i < tris.length; i++) tris[i] *= scaleToMM;
   return tris;
 }

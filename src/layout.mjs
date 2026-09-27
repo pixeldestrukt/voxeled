@@ -10,6 +10,7 @@ import { buildScene } from "./format.mjs";
 import { resolveStructure } from "./structures.mjs";
 import { loadPaths, resolvePath, samplePath } from "./paths.mjs";
 import { resolveSite, resolveVantages } from "./site.mjs";
+import { defaultVFS } from "./vfs.mjs";
 
 // instances: [{ name, fixtureName, fixture:{pixels,meta}, pos:[x,y,z]mm, rotDeg:[rx,ry,rz] }]
 // Each instance carries its OWN resolved fixture, so a rig can mix different fixtures.
@@ -112,11 +113,13 @@ export function expandInstances(list, { paths = {} } = {}) {
 //   fixtures: { <fixtureName>: { type, params } }
 //   instances: [ { fixture: <fixtureName>, name, pos:[x,y,z], rotDeg:[rx,ry,rz] } ]
 //   show: { holdS, fadeS, scenes: [ { name, pattern, params } ] }   (optional)
-export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = null } = {}) {
+// `vfs` is where the layout's files come from (src/vfs.mjs); default: disk relative to baseDir under Node.
+export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = null, vfs = null } = {}) {
   const fixDefs = doc.fixtures || {};
+  vfs = vfs || defaultVFS(baseDir);
   // Named paths (`paths:` — inline points or JSON files such as thread-3d's tubes.json), available
   // to `rope` fixtures (params.path: name) and `along:` generators.
-  const paths = loadPaths(doc.paths, { baseDir });
+  const paths = loadPaths(doc.paths, { baseDir, vfs });
   const cache = {};
   const getFixture = (fixtureName) => {
     if (cache[fixtureName]) return cache[fixtureName];
@@ -124,7 +127,7 @@ export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = nul
     if (!def) throw new Error(`layout references undefined fixture "${fixtureName}"`);
     const make = fixtures[def.type];
     if (!make) throw new Error(`unknown fixture type "${def.type}" (registered: ${Object.keys(fixtures).join(", ") || "none"})`);
-    return (cache[fixtureName] = make({ ...(def.params || {}), paths, baseDir })); // file params resolve relative to the layout
+    return (cache[fixtureName] = make({ ...(def.params || {}), paths, baseDir, vfs })); // file params resolve through the vfs, relative to the layout
   };
 
   const instances = expandInstances(doc.instances || [], { paths }).map((inst, k) => {
@@ -157,13 +160,13 @@ export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = nul
   instances.forEach((inst, k) => {
     // from the layout's fixture definition, plus any the fixture itself brought (a baked .vxl scene)
     for (const s of [...(fixDefs[inst.fixtureName]?.structures || []), ...(inst.fixture.meta?.structures || [])])
-      structures.push({ ...resolveStructure(s, { baseDir }, { pos: inst.pos || [0, 0, 0], rotDeg: inst.rotDeg || [0, 0, 0] }, `${inst.name}:${s.name || String(s.file).replace(/^.*[\\/]/, "")}`), inst: k });
+      structures.push({ ...resolveStructure(s, { baseDir, vfs }, { pos: inst.pos || [0, 0, 0], rotDeg: inst.rotDeg || [0, 0, 0] }, `${inst.name}:${s.name || String(s.file).replace(/^.*[\\/]/, "")}`), inst: k });
   });
-  for (const s of doc.structures || []) structures.push(resolveStructure(s, { baseDir }));
+  for (const s of doc.structures || []) structures.push(resolveStructure(s, { baseDir, vfs }));
 
   // Site context: the geo-anchor and the places a viewer can stand (360° backdrops) — src/site.mjs.
   const site = resolveSite(doc.site);
-  const vantages = resolveVantages(doc.vantages, { baseDir, site });
+  const vantages = resolveVantages(doc.vantages, { baseDir, site, vfs });
   // Inputs: external streams that drive the piece, merged by priority/htp/ltp (src/input/index.mjs).
   const inputs = resolveInputs(doc.inputs);
   // Trackers: where things are (src/poses.mjs). An instance with `track:` follows one.
@@ -233,5 +236,17 @@ export function resolveTrackers(list) {
     if (source === "psn") { out.port = t.port || 56565; out.group = t.group ?? "236.10.10.10"; out.id = t.id ?? null; out.scaleToMM = t.scaleToMM ?? 1000; out.up = t.up || "y"; }
     return out;
   });
+}
+
+// Every file a layout refers to (layout-relative), so a hosted/static project can fetch or check
+// them up front: fixture files, structures, path files, vantage images, `{ cube: dir }` for cubemaps.
+export function collectFiles(doc) {
+  const out = [];
+  const add = (f) => { if (f && !out.includes(f)) out.push(f); };
+  for (const def of Object.values(doc.fixtures || {})) { add(def.params?.file); for (const s of def.structures || []) add(s.file); }
+  for (const s of doc.structures || []) add(s.file);
+  for (const p of Object.values(doc.paths || {})) if (p && !Array.isArray(p)) add(p.file);
+  for (const v of doc.vantages || []) { add(v.image); if (v.cube) out.push({ cube: v.cube }); }
+  return out;
 }
 

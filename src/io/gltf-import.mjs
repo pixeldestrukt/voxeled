@@ -6,19 +6,22 @@
 // and positions are scaled from glTF metres to voxeled millimetres. Result plugs in as a fixture:
 //   { pixels: [{ i, p:[x,y,z]mm, n:[..], s, v }], meta }
 import { norm } from "../vec.mjs";
+import { u8, view, decode } from "../bytes.mjs";
 
 const COMPS = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
 
 export function parseGLB(buffer) {
-  if (buffer.length < 20 || buffer.readUInt32LE(0) !== 0x46546c67) throw new Error("not a GLB (bad magic)");
-  const jsonLen = buffer.readUInt32LE(12);
-  if (buffer.readUInt32LE(16) !== 0x4e4f534a) throw new Error("expected a JSON chunk");
-  const gltf = JSON.parse(buffer.slice(20, 20 + jsonLen).toString("utf8"));
-  let bin = Buffer.alloc(0);
+  buffer = u8(buffer);
+  const dv = view(buffer);
+  if (buffer.length < 20 || dv.getUint32(0, true) !== 0x46546c67) throw new Error("not a GLB (bad magic)");
+  const jsonLen = dv.getUint32(12, true);
+  if (dv.getUint32(16, true) !== 0x4e4f534a) throw new Error("expected a JSON chunk");
+  const gltf = JSON.parse(decode(buffer, "utf-8", 20, 20 + jsonLen));
+  let bin = new Uint8Array(0);
   const binHdr = 20 + jsonLen;
-  if (binHdr + 8 <= buffer.length && buffer.readUInt32LE(binHdr + 4) === 0x004e4942) {
-    const binLen = buffer.readUInt32LE(binHdr);
-    bin = buffer.slice(binHdr + 8, binHdr + 8 + binLen);
+  if (binHdr + 8 <= buffer.length && dv.getUint32(binHdr + 4, true) === 0x004e4942) {
+    const binLen = dv.getUint32(binHdr, true);
+    bin = buffer.subarray(binHdr + 8, binHdr + 8 + binLen);
   }
   return { gltf, bin };
 }
@@ -32,7 +35,8 @@ function readAccessor(gltf, bin, index) {
   const start = (bv.byteOffset || 0) + (acc.byteOffset || 0);
   const stride = bv.byteStride || comps * compSize;
   const out = new Float64Array(acc.count * comps);
-  const read = { 5126: (o) => bin.readFloatLE(o), 5125: (o) => bin.readUInt32LE(o), 5123: (o) => bin.readUInt16LE(o), 5122: (o) => bin.readInt16LE(o), 5121: (o) => bin.readUInt8(o), 5120: (o) => bin.readInt8(o) }[acc.componentType];
+  const dv = view(bin);
+  const read = { 5126: (o) => dv.getFloat32(o, true), 5125: (o) => dv.getUint32(o, true), 5123: (o) => dv.getUint16(o, true), 5122: (o) => dv.getInt16(o, true), 5121: (o) => bin[o], 5120: (o) => dv.getInt8(o) }[acc.componentType];
   for (let i = 0; i < acc.count; i++)
     for (let c = 0; c < comps; c++) out[i * comps + c] = read(start + i * stride + c * compSize);
   return { data: out, comps, count: acc.count };
