@@ -19,6 +19,7 @@ Drive real fixtures from *spatial* animations authored in **real-world units** �
   [Visibility & the simulator](docs/visibility.md) · [Protocols](docs/interop/protocols.md) ·
   [Chromatik `.lxm`/`.lxf`](docs/interop/lxm.md) · [Design](docs/DESIGN.md) ·
   [The landscape — where voxeled sits](docs/LANDSCAPE.md)
+- **[The static page](docs/STATIC.md)** — voxeled with no server: the hub runs in the browser, your files stay in it; host on GitHub Pages, publish a piece next to the page, watch a LAN hub live.
 - Integrations: [Blender](integrations/blender/) · [Grasshopper](integrations/grasshopper/) · [TiXL](integrations/tixl/)
 
 ## Try it — Möbius LED Heart

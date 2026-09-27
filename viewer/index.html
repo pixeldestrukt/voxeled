@@ -32,6 +32,14 @@
   #h-mode.sim { color: #ffcf4d; }
   /* builder */
   #build { top: 12px; right: 12px; width: 300px; }
+  #proj { top: 12px; left: 274px; width: 300px; max-height: calc(100vh - 24px); overflow: auto; }
+  #proj select, #proj textarea { width: 100%; box-sizing: border-box; background: #0d1020; color: #dfe4ff; border: 1px solid #2a3252; border-radius: 6px; font: inherit; padding: 4px 6px; }
+  #proj textarea { font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; height: 180px; resize: vertical; }
+  #proj .files { font-size: 11px; color: var(--dim); max-height: 90px; overflow: auto; }
+  #proj .files div { display: flex; justify-content: space-between; gap: 6px; }
+  #proj .files b { color: #dfe4ff; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #drop { position: fixed; inset: 0; z-index: 30; display: none; align-items: center; justify-content: center; background: rgba(20,24,48,.75); color: #fff; font-size: 20px; pointer-events: none; }
+  #drop.on { display: flex; }
   #build[hidden] { display: none; }
   #build .sel { font-weight: 700; color: var(--ink); font-size: 13px; margin-bottom: 2px; }
   #build .sub { color: var(--dim); font-size: 11px; margin-bottom: 8px; min-height: 14px; }
@@ -66,7 +74,7 @@
   <hr/>
   <div class="btns" id="view" style="margin-top:0">
     <button id="v-sim" title="S">sim</button><button id="v-bloom" title="B">bloom</button>
-    <button id="v-model" title="M">model</button><button id="v-normals" title="N">normals</button><button id="v-build" title="E">builder</button><button id="v-stand" title="V — stand at a vantage (site context)" hidden>stand</button>
+    <button id="v-model" title="M">model</button><button id="v-normals" title="N">normals</button><button id="v-build" title="E">builder</button><button id="v-stand" title="V — stand at a vantage (site context)" hidden>stand</button><button id="v-proj" title="P — this page's project: layout + the files you dropped in (kept in this browser)" hidden>project</button>
   </div>
   <hr/>
   <div id="xf">
@@ -129,7 +137,27 @@
   <div id="b-status"></div>
 </div>
 
-<div id="help">drag orbit · scroll zoom · <b>E</b> builder · <b>S</b> sim · <b>B</b> bloom · <b>M</b> model · <b>N</b> normals · <b>[</b> <b>]</b> crossfade · <b>A</b> auto</div>
+<div id="proj" class="panel" hidden>
+  <h1>⌂ project</h1>
+  <div class="row"><span>Open</span><span id="p-name">—</span></div>
+  <div class="lab">projects in this browser · examples</div>
+  <select id="p-list"></select>
+  <div class="btns"><button id="p-open">open</button><button id="p-saveas">save as…</button><button id="p-del">delete</button></div>
+  <div class="lab" title="the models, structures, panoramas the layout refers to — drop files anywhere on the page, or add them here. They stay in this browser (IndexedDB), nothing is uploaded.">files</div>
+  <div class="files" id="p-files">—</div>
+  <div class="btns"><button id="p-add">＋ add files…</button><input id="p-add-input" type="file" multiple hidden /></div>
+  <div class="lab" title="the layout (YAML): fixtures, instances, structures, show… — edit and apply, or use the builder (E)">layout</div>
+  <textarea id="p-yaml" spellcheck="false"></textarea>
+  <div class="btns"><button id="p-apply">apply</button><button id="p-save">💾 save</button></div>
+  <div class="lab" title="one JSON file with the layout and every file, base64 — move a project to another browser or host it next to this page">bundle</div>
+  <div class="btns"><button id="p-export">⬇ export</button><button id="p-import">⬆ import…</button><input id="p-import-input" type="file" accept=".json" hidden /></div>
+  <div class="lab" title="live frames from a LAN hub's /bus, merged over this page's show (raw RGB frames or Art-Net over the socket)">live from a hub</div>
+  <div class="btns"><input id="p-ws" placeholder="ws://192.168.1.20:8080/bus" style="flex:2" /><button id="p-ws-go">connect</button></div>
+  <div id="p-status"></div>
+</div>
+<div id="drop">drop files to add them to the project · a .yaml becomes the layout · a bundle .json opens a project</div>
+
+<div id="help">drag orbit · scroll zoom · <b>E</b> builder · <b>S</b> sim · <b>B</b> bloom · <b>M</b> model · <b>N</b> normals · <b>[</b> <b>]</b> crossfade · <b>A</b> auto · <b>P</b> project</div>
 
 <script type="module">
 import * as THREE from "three";
@@ -172,6 +200,21 @@ addEventListener("resize", () => {
   renderer.setSize(innerWidth, innerHeight);
   composer?.setSize(innerWidth, innerHeight);
 });
+
+// ── where the scene comes from: a hub (WebSocket + /layout etc.) or this page itself ──────────
+// Static mode (no server: GitHub Pages, a file share, the Thread site) runs the hub in the page
+// (viewer/local.mjs); the same `api` surface serves both, so the builder, crossfader and inputs
+// row don't care. Picked by ?static=1 / ?project= / ?example=, or automatically when there is no
+// scene.json to fetch.
+let api = null, staticMode = qs.get("static") === "1" || qs.has("project") || qs.has("example"), project = null;
+const hubAPI = {
+  kind: "hub",
+  getScene: async () => { const r = await fetch("scene.json"); if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); },
+  control: async (params) => { const r = await fetch("/control?" + new URLSearchParams(params)); return r.json(); },
+  getLayout: async () => { const r = await fetch("/layout"); if (!r.ok) throw new Error(`hub has no /layout (HTTP ${r.status})`); return r.json(); },
+  postLayout: async (doc, write) => (await fetch(`/layout${write ? "?write=1" : ""}`, { method: "POST", body: JSON.stringify(doc) })).json(),
+  inputs: async () => (await fetch("inputs")).json(),
+};
 
 // ── state ─────────────────────────────────────────────────────────────────────
 let scene = null, N = 0, mesh = null, simMesh = null, normalsLines = null;
@@ -518,16 +561,20 @@ setInterval(() => { for (const g of trackerMarks.values()) g.visible = performan
 setInterval(async () => {
   if (!scene?.meta?.inputs?.length) return;
   try {
-    const st = await (await fetch("inputs")).json();
+    const st = await api.inputs();
     $("h-inputs").innerHTML = st.inputs.map((i) => `<span style="color:${i.live ? "#6f6" : "#888"}">${i.name}${i.live ? ` ${i.rate}/s` : ""}</span>`).join(" · ") + ` <span style="color:#888">(${st.mode})</span>`;
   } catch {}
 }, 1000);
 
 // ── boot + live reload ─────────────────────────────────────────────────────────
-async function loadScene() { return (await fetch("scene.json")).json(); }
+async function loadScene() { return api.getScene(); }
 async function boot() {
-  buildSceneObjects(await loadScene());
-  connectBus();
+  if (!staticMode) {
+    api = hubAPI;
+    try { buildSceneObjects(await loadScene()); connectBus(); }
+    catch (e) { console.log("VOXELED_NO_HUB", e.message, "— static mode"); staticMode = true; }
+  }
+  if (staticMode) await bootStatic();
   console.log("VOXELED_READY", N);
   console.log("VOXELED_SIM_READY", scene.meta?.instances?.length ?? 1, "emitter profile(s)");
   if (qs.get("build") === "1") await toggleBuilder(true);
@@ -553,14 +600,125 @@ function connectBus() {
       try { const m = JSON.parse(ev.data); if (m.type === "scene") reloadScene(); else if (m.type === "pose") onPose(m); } catch {}
       return;
     }
-    if (!mesh) return;
-    const d = new Uint8Array(ev.data);
-    const n = Math.min(N, (d.length / 3) | 0);
-    for (let i = 0; i < n; i++) { tmp.setRGB(d[i * 3] / 255, d[i * 3 + 1] / 255, d[i * 3 + 2] / 255); mesh.setColorAt(i, tmp); simMesh.setColorAt(i, tmp); }
-    mesh.instanceColor.needsUpdate = true; simMesh.instanceColor.needsUpdate = true;
-    frameCount++;
+    applyFrame(new Uint8Array(ev.data));
   };
 }
+// one frame of the normalized bus (N×3 RGB) → the LEDs, whichever hub produced it
+function applyFrame(d) {
+  if (!mesh) return;
+  const n = Math.min(N, (d.length / 3) | 0);
+  for (let i = 0; i < n; i++) { tmp.setRGB(d[i * 3] / 255, d[i * 3 + 1] / 255, d[i * 3 + 2] / 255); mesh.setColorAt(i, tmp); simMesh.setColorAt(i, tmp); }
+  mesh.instanceColor.needsUpdate = true; simMesh.instanceColor.needsUpdate = true;
+  frameCount++;
+}
+
+// ── static mode: the hub runs in this page ──────────────────────────────────────
+const EXAMPLES = ["columns", "two-hearts", "site", "ropes", "grid-3x3", "facing-hearts", "imported", "patched"];
+const exampleUrl = (name) => new URL(`../examples/mobius-heart/layouts/${name}.yaml`, location.href).href;
+let local = null, store = null;
+async function bootStatic() {
+  local = await import("./local.mjs");
+  store = await import("./store.mjs");
+  $("v-proj").hidden = false;
+  let last = null; try { last = localStorage.getItem("voxeled.project"); } catch {}
+  let p = null;
+  try {
+    if (qs.has("project")) p = await local.loadHostedProject(qs.get("project"));
+    else if (qs.has("example")) p = await local.loadHostedProject(exampleUrl(qs.get("example")));
+    else if (last) p = await store.getProject(last);
+  } catch (e) { console.warn("VOXELED_PROJECT_LOAD_FAILED", e.message); }
+  if (!p) { try { p = await local.loadHostedProject(exampleUrl("columns")); } catch (e) { pstatus(`✗ ${e.message}`); throw e; } }
+  await openProject(p);
+  if (qs.has("ws")) { $("p-ws").value = qs.get("ws"); api.connectRemote(qs.get("ws")); }
+}
+function pstatus(msg) { $("p-status").textContent = msg; }
+async function openProject(p) {
+  api?.stop?.();
+  project = p;
+  project.onSave = async (pr) => { await store.putProject(pr); try { localStorage.setItem("voxeled.project", pr.name); } catch {} pstatus(`saved "${pr.name}" in this browser`); console.log("VOXELED_PROJECT_SAVED", pr.name); };
+  api = local.createLocalHub({ project, onFrame: applyFrame, onScene: () => reloadScene() });
+  buildSceneObjects(api.scene);
+  $("h-dot").classList.add("live"); $("h-bus").lastChild.textContent = "local hub (this page)";
+  $("p-name").textContent = p.name + (p.source ? " · hosted" : "");
+  $("p-yaml").value = p.layout;
+  renderFiles();
+  await refreshProjectList();
+  console.log("VOXELED_LOCAL_HUB", p.name, p.files?.size ?? 0, "file(s)", N, "px");
+}
+function renderFiles() {
+  const names = api?.files?.() || [];
+  $("p-files").innerHTML = names.length ? names.map((n) => `<div><b title="${n}">${n}</b><span>${(project.files.get(n)?.length / 1024).toFixed(0)} KB</span></div>`).join("") : "— (drop STL / GLB / OBJ / .vxl.json / images here)";
+}
+async function refreshProjectList() {
+  const sel = $("p-list"); sel.innerHTML = "";
+  const mine = await store.listProjects();
+  for (const m of mine) { const o = document.createElement("option"); o.value = "p:" + m.name; o.textContent = `${m.name} · ${m.files} file(s)`; sel.appendChild(o); }
+  for (const e of EXAMPLES) { const o = document.createElement("option"); o.value = "e:" + e; o.textContent = `example · ${e}`; sel.appendChild(o); }
+  const cur = project?.source ? null : "p:" + project?.name;
+  if (cur && [...sel.options].some((o) => o.value === cur)) sel.value = cur;
+}
+async function addFiles(fileList) {
+  let layoutFile = null, bundle = null;
+  for (const f of fileList) {
+    const bytes = new Uint8Array(await f.arrayBuffer());
+    if (/\.ya?ml$/i.test(f.name)) layoutFile = { name: f.name, text: new TextDecoder().decode(bytes) };
+    else if (/\.json$/i.test(f.name) && !/\.vxl\.json$/i.test(f.name) && new TextDecoder().decode(bytes.subarray(0, 40)).includes("voxeledProject")) bundle = new TextDecoder().decode(bytes);
+    else api.addFile(f.name, bytes);
+  }
+  if (bundle) { await openProject(store.importBundle(bundle)); pstatus("bundle opened — save to keep it"); return; }
+  if (layoutFile) {
+    project.layout = layoutFile.text; project.layoutName = layoutFile.name; $("p-yaml").value = layoutFile.text;
+    const r = await api.postLayout(local.parseYAML(layoutFile.text), false);
+    pstatus(r.error ? `✗ ${r.error}` : `layout ${layoutFile.name} applied — save to keep it`);
+  } else { renderFiles(); pstatus(`${fileList.length} file(s) added — apply/save the layout that uses them`); }
+  renderFiles();
+}
+$("v-proj").addEventListener("click", () => toggleProject());
+function toggleProject(on = $("proj").hidden) { $("proj").hidden = !on; $("v-proj").classList.toggle("on", on); }
+$("p-open").addEventListener("click", async () => {
+  const v = $("p-list").value; if (!v) return;
+  try {
+    const p = v.startsWith("e:") ? await local.loadHostedProject(exampleUrl(v.slice(2))) : await store.getProject(v.slice(2));
+    if (!p) return pstatus("✗ not found");
+    await openProject(p); if (!p.source) { try { localStorage.setItem("voxeled.project", p.name); } catch {} }
+    pstatus(p.source ? `opened example ${p.name} — save as… to keep a copy` : `opened ${p.name}`);
+  } catch (e) { pstatus(`✗ ${e.message}`); }
+});
+$("p-saveas").addEventListener("click", async () => {
+  const name = prompt("project name", project.source ? project.name : project.name + "-copy"); if (!name) return;
+  project = { ...project, name: name.trim(), source: null, layout: $("p-yaml").value };
+  await project.onSave(project); // IndexedDB + remembered as the project to reopen
+  $("p-name").textContent = project.name; await refreshProjectList();
+});
+$("p-del").addEventListener("click", async () => { const v = $("p-list").value; if (!v.startsWith("p:")) return; await store.deleteProject(v.slice(2)); await refreshProjectList(); pstatus(`deleted ${v.slice(2)}`); });
+$("p-add").addEventListener("click", () => $("p-add-input").click());
+$("p-add-input").addEventListener("change", (e) => addFiles(e.target.files));
+$("p-apply").addEventListener("click", async () => {
+  try { const r = await api.postLayout(local.parseYAML($("p-yaml").value), false); pstatus(r.error ? `✗ ${r.error}` : `applied · ${r.instances} instance(s) — unsaved`); if (!r.error) project.layout = $("p-yaml").value; }
+  catch (e) { pstatus(`✗ ${e.message}`); }
+});
+$("p-save").addEventListener("click", async () => {
+  try { const doc = local.parseYAML($("p-yaml").value); const r = await api.postLayout(doc, false); if (r.error) return pstatus(`✗ ${r.error}`); project.layout = $("p-yaml").value; if (project.source) project = { ...project, source: null }; await project.onSave(project); $("p-name").textContent = project.name; await refreshProjectList(); }
+  catch (e) { pstatus(`✗ ${e.message}`); }
+});
+$("p-export").addEventListener("click", () => {
+  const blob = new Blob([store.exportBundle({ ...project, layout: $("p-yaml").value })], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `${project.name}.voxeled.json`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+});
+$("p-import").addEventListener("click", () => $("p-import-input").click());
+$("p-import-input").addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f) return; try { await openProject(store.importBundle(await f.text())); pstatus("bundle opened — save to keep it"); } catch (err) { pstatus(`✗ ${err.message}`); } });
+$("p-ws-go").addEventListener("click", () => {
+  if (api.kind !== "local") return;
+  if ($("p-ws-go").textContent === "disconnect") { api.disconnectRemote(); $("p-ws-go").textContent = "connect"; pstatus("remote disconnected"); return; }
+  const url = $("p-ws").value.trim(); if (!url) return;
+  if (api.connectRemote(url)) { $("p-ws-go").textContent = "disconnect"; pstatus(`live frames from ${url} (priority over the show)`); } else pstatus("✗ bad WebSocket URL");
+});
+// drop files anywhere on the page
+let dragDepth = 0;
+addEventListener("dragenter", (e) => { if (!staticMode) return; e.preventDefault(); dragDepth++; $("drop").classList.add("on"); });
+addEventListener("dragleave", () => { if (!staticMode) return; if (--dragDepth <= 0) { dragDepth = 0; $("drop").classList.remove("on"); } });
+addEventListener("dragover", (e) => { if (staticMode) e.preventDefault(); });
+addEventListener("drop", (e) => { if (!staticMode) return; e.preventDefault(); dragDepth = 0; $("drop").classList.remove("on"); if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files); });
 
 // ── crossfade control → hub /control ─────────────────────────────────────────
 const slider = $("xf-slider"), autoBtn = $("xf-auto");
@@ -569,7 +727,7 @@ function sendControl(q) {
   const now = performance.now();
   if (now - lastSend < 60) { clearTimeout(pendingT); pendingT = setTimeout(() => sendControl(q), 60); return; }
   lastSend = now;
-  fetch("/control?" + q).catch(() => {});
+  api?.control(new URLSearchParams(q)).catch(() => {});
 }
 function goManual() { autoBtn.classList.remove("on"); sendControl(`mode=manual&a=0&b=1&fader=${slider.value}`); }
 slider.addEventListener("input", goManual);
@@ -593,16 +751,14 @@ const raycaster = new THREE.Raycaster();
 
 let hubStale = false; // the hub process predates the builder (no /layout, no src/inst in the scene)
 async function refreshLayout() {
-  const r = await fetch("/layout");
-  if (!r.ok) throw new Error(`hub has no /layout (HTTP ${r.status})`);
-  layout = await r.json();
+  layout = await api.getLayout();
   const sel = $("b-fixture");
   sel.innerHTML = "";
   for (const k of Object.keys(layout.doc?.fixtures || {})) { const o = document.createElement("option"); o.value = k; o.textContent = k; sel.appendChild(o); }
 }
 function markHubStale(why) {
   hubStale = true;
-  status(`✗ ${why} — the hub is running older code than this page. Restart it: Ctrl-C, then npm run demo`, true);
+  status(api?.kind === "local" ? `✗ ${why}` : `✗ ${why} — the hub is running older code than this page. Restart it: Ctrl-C, then npm run demo`, true);
   for (const b of $("build").querySelectorAll("button, input, select")) b.disabled = true;
   console.warn("VOXELED_HUB_STALE", why);
 }
@@ -734,9 +890,10 @@ async function commitTransform() {
 }
 async function postLayout(write) {
   try {
-    const r = await (await fetch(`/layout${write ? "?write=1" : ""}`, { method: "POST", body: JSON.stringify(layout.doc) })).json();
+    const r = await api.postLayout(layout.doc, write);
     if (r.error) { status(`✗ ${r.error}`, true); return false; }
-    status(write ? `saved ${layout.path.split("/").pop()} · ${r.instances} instance(s)` : `applied live · ${r.instances} instance(s) — unsaved`, !write);
+    status(write ? `saved ${layout.path.split("/").pop()} · ${r.instances} instance(s)${api.kind === "local" ? " (in this browser)" : ""}` : `applied live · ${r.instances} instance(s) — unsaved`, !write);
+    if (api.kind === "local") $("p-yaml").value = project.layout;
     return true;
   } catch (e) { status(`✗ ${e.message}`, true); return false; }
 }
@@ -816,6 +973,7 @@ addEventListener("keydown", (e) => {
   else if (k === "m") { modelMode = (modelMode + 1) % 3; applyMode(); }
   else if (k === "e") toggleBuilder(!buildOn);
   else if (k === "v") cycleStand();
+  else if (k === "p" && staticMode) toggleProject();
   else if (buildOn && k === "t") setGizmoMode("translate");
   else if (buildOn && k === "r" && !$("b-rot").disabled) setGizmoMode("rotate");
   else if (buildOn && k === "escape") deselect();

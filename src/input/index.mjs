@@ -3,7 +3,8 @@
 // an input map), ddp, tcp (whole frames in scene order), ws (the bus: a page pushes raw RGB frames
 // or Art-Net packets as binary messages, and JSON control as text). All of them are just sources;
 // the hub composes them over the internal show every tick.
-import { createArtNetInput, eachArtNet, OP_DMX } from "./artnet.mjs";
+import { createArtNetInput } from "./artnet.mjs";
+import { eachArtNet, isArtNet, OP_DMX } from "./artnet-packet.mjs";
 import { createSacnInput } from "./sacn.mjs";
 import { createDDPInput } from "./ddp.mjs";
 import { createColorInput } from "./color-tcp.mjs";
@@ -52,7 +53,7 @@ export function createInputs({ specs = [], merge = {}, scene, bus = null, onCont
   function onMessage({ socket, binary, text }) {
     if (binary) {
       if (!wsSource) return;
-      if (binary.length >= 12 && binary.subarray(0, 8).toString("latin1") === "Art-Net\0") { for (const p of eachArtNet(binary)) if (p.op === OP_DMX) wsSource.writeUniverse(wsEntry.map, p.universe, p.data); }
+      if (binary.length >= 12 && isArtNet(binary)) { for (const p of eachArtNet(binary)) if (p.op === OP_DMX) wsSource.writeUniverse(wsEntry.map, p.universe, p.data); }
       else wsSource.writeFrame(binary);
       return;
     }

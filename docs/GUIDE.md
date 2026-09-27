@@ -6,7 +6,7 @@ example (the Thread sculpture). The short docs each cover one part; this is the 
 
 - [Concepts](#1-concepts) · [Frames & units](#2-frames-and-units) · [The layout file](#3-the-layout-file)
 - [Getting geometry in](#4-getting-geometry-in) · [Structures](#5-structures--the-body-of-the-piece) · [Placing LEDs on a structure](#6-placing-leds-on-a-structure-paths-and-ropes)
-- [The builder](#7-the-builder) · [Baking & export](#8-baking-and-export) · [Running](#9-running-the-hub) · [Site context](#12-site-context-the-piece-in-the-world) · [Moving fixtures & wands](#13-moving-fixtures-and-wands)
+- [The builder](#7-the-builder) · [Baking & export](#8-baking-and-export) · [Running](#9-running-the-hub) · [Site context](#12-site-context-the-piece-in-the-world) · [No server](#13-no-server-the-static-page) · [Moving fixtures & wands](#13-moving-fixtures-and-wands)
 - [Worked example: Thread](#10-worked-example-thread) · [Gotchas](#11-gotchas)
 
 ---
@@ -425,4 +425,11 @@ A photo carries no depth, so real buildings don't occlude the piece. If that mat
 scan or the building's CAD as a scene-level structure (opaque in the simulator). Try it:
 `node examples/mobius-heart/run.mjs examples/mobius-heart/layouts/site.yaml` (its backdrop is a
 compass test pattern — north red, east green, south blue, west yellow).
+
+## 13. No server: the static page
+
+Everything in this guide except the wire also runs with no hub at all: open `viewer/?static=1`
+from any static host and the page runs the hub itself, keeping the layout and the files you drop
+in inside the browser (IndexedDB). Author there, export a bundle, publish a baked piece next to
+the page, or point it at a LAN hub's `/bus` for live frames. Details: [STATIC.md](STATIC.md).
 

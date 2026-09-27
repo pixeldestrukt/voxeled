@@ -48,7 +48,8 @@ export function nodeVFS(baseDir = null) {
 export function memoryVFS(files = new Map(), { baseDir = "" } = {}) {
   const store = new Map();
   const urls = new Map();
-  const put = (name, bytes) => { store.set(normalizePath(name), bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)); urls.delete(normalizePath(name)); };
+  // keys are canonical: layout-relative names land under joinPath(baseDir, name)
+  const put = (name, bytes) => { const k = joinPath(baseDir, name); store.set(k, bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)); urls.delete(k); };
   for (const [k, v] of files instanceof Map ? files : Object.entries(files)) put(k, v);
   const find = (rel) => { const key = joinPath(baseDir, rel); if (store.has(key)) return key; const b = basename(rel); for (const k of store.keys()) if (basename(k) === b) return k; return null; };
   const vfs = {
@@ -63,7 +64,7 @@ export function memoryVFS(files = new Map(), { baseDir = "" } = {}) {
       return urls.get(k);
     },
     list: () => [...store.keys()],
-    remove: (name) => { const k = normalizePath(name); store.delete(k); urls.delete(k); },
+    remove: (name) => { const k = find(name) ?? joinPath(baseDir, name); store.delete(k); urls.delete(k); },
   };
   return vfs;
 }
