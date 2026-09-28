@@ -2,7 +2,7 @@
 
 The complete workflow: get a piece's geometry in, place it, give it a body, wire it, light it,
 and hand it to other tools — with the vocabulary, the file formats, every knob, and a worked
-example (the Thread sculpture). The short docs each cover one part; this is the whole thing.
+example (the Thread sculpture). The short docs each cover one part; this is the whole thing. New here? Read [Getting started](START.md) first.
 
 - [Concepts](#1-concepts) · [Frames & units](#2-frames-and-units) · [The layout file](#3-the-layout-file)
 - [Getting geometry in](#4-getting-geometry-in) · [Structures](#5-structures--the-body-of-the-piece) · [Placing LEDs on a structure](#6-placing-leds-on-a-structure-paths-and-ropes)
@@ -95,6 +95,7 @@ show:
 | `mesh` | `file`, `scaleToMM` (1), `normalSign` (`outward`\|`inward`\|`+x…-z`), `order` (`chain`\|`file`), `minTris`, `maxTris`, `emitter` | **chip-island import** of a CAD mesh whose LED chips are bodies (STL/OBJ/GLB): one LED per island, thin axis = normal, order by chaining ([§4](#4-getting-geometry-in)) |
 | `vxl` | `file`, `emitter` | a **baked** `.vxl.json` (Blender/Grasshopper export, `vox import`, `export.mjs`). Brings any structures the file carries ([§8](#8-baking-and-export)) |
 | `gltf` | `file`, `scaleToMM` (1000) | glTF/GLB points or mesh vertices with `NORMAL` (else estimated) |
+| `matrix` | `cols`, `rows`, `pitchMM` (`colPitchMM`/`rowPitchMM`), `wiring` (`rows`\|`columns`), `serpentine`, `start` (corner of pixel 0), `center` | a **flat grid** facing +Z — 8×8/16×16/8×32 panels, strips laid in rows; the panel's wiring as data order |
 | `tube` | `cols` (8), `rows` (32), `panels` (1), `pitchMM` (10), `seamMM`, `panelGapMM`, `diameterMM`, `wiring` (`across`\|`along`), `serpentine`, `startAngleDeg`, `clockwise` | a **flexible matrix panel rolled into a column**: the short side around (Ø = (cols·pitch + seam)/π), panels end to end along +Y from the base, radial normals, the panel's serpentine wiring as data order (`layouts/columns.yaml`) |
 | `rope` | `path`, `count` **or** `pitchMM`, `radiusMM`, `angleDeg` (number or list), `angleFrom`, `twistDegPerM`, `startMM`, `endMM`, `up` | LEDs along a path, offset and wrapped around it, normals radial ([§6](#6-placing-leds-on-a-structure-paths-and-ropes)) |
 

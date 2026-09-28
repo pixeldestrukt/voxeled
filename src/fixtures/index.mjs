@@ -5,6 +5,7 @@ import { gltfToFixture } from "../io/gltf-import.mjs";
 import { meshToFixture } from "../io/mesh-import.mjs";
 import { ropeFixture } from "./rope.mjs";
 import { tubeFixture } from "./tube.mjs";
+import { matrixFixture } from "./matrix.mjs";
 import { add, matVec, eulerMatrix, matMul, matToEulerDeg } from "../vec.mjs";
 import { defaultVFS } from "../vfs.mjs";
 
@@ -39,6 +40,9 @@ export const FIXTURES = {
   // One pixel at the origin — a phone that joined as a pixel (its screen shows the colour), a single lamp.
   // Normal +Z (out of a screen); with the phone's pose (+Y = its top edge) a flat phone faces up.
   dot: (params) => withEmitter({ pixels: [{ i: 0, p: [0, 0, 0], n: [0, 0, 1], s: 0, v: 0 }], meta: { source: "dot", pitchMM: params.sizeMM || 70, points: 1 } }, params.emitter || { viewingAngleDeg: 160, sizeFrac: 1, coreFrac: 0.9, softness: 0.8, gain: 1.4, glow: 1.0 }),
+  // A flat grid (8×8, 16×16, 8×32 panels; strips laid in rows) facing +Z: src/fixtures/matrix.mjs.
+  //   { type: matrix, params: { cols: 32, rows: 8, pitchMM: 10, wiring: columns } }
+  matrix: (params) => (params.emitter ? withEmitter(matrixFixture(params), params.emitter) : matrixFixture(params)),
   tube: (params) => (params.emitter ? withEmitter(tubeFixture(params), params.emitter) : tubeFixture(params)),
   // A baked fixture file (.vxl.json) — what the Blender addon and the Grasshopper component write,
   // or a scene from `vox import`. Must carry normals (`vox check` enforces it).
