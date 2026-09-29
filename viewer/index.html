@@ -395,7 +395,7 @@ function ropeGeometry(idx, P, Nn, radius, RADIAL = 8) {
     }
   }
   const index = [];
-  for (let i = 0; i + 1 < n; i++) for (let j = 0; j < RADIAL; j++) { const a = i * (RADIAL + 1) + j, b = a + RADIAL + 1; index.push(a, b, a + 1, b, b + 1, a + 1); }
+  for (let i = 0; i + 1 < n; i++) for (let j = 0; j < RADIAL; j++) { const a = i * (RADIAL + 1) + j, b = a + RADIAL + 1; index.push(a, a + 1, b, b, a + 1, b + 1); } // CCW seen from outside (V = T × U)
   const g = new THREE.BufferGeometry();
   g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
   g.setAttribute("aLed", new THREE.BufferAttribute(led, 1)); g.setAttribute("aProfile", new THREE.BufferAttribute(prof, 1));
