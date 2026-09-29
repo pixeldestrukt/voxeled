@@ -1018,7 +1018,8 @@ const showVal = (v) => (v == null ? "–" : typeof v === "object" ? (Array.isArr
 function onRemoteMessage(m) {
   if (!ctlStatus || m.type !== ctlStatus.type) return;
   ctlStatus.fields.forEach((f, i) => { const v = pathGet(m, f.path); const el = ctlStatus.els[i]; el.textContent = showVal(v); el.className = v == null ? "off" : ""; });
-  console.log("VOXELED_CTL_STATUS", ctlStatus.fields.map((f, i) => `${f.label}=${ctlStatus.els[i].textContent}`).join(" · "));
+  const line = ctlStatus.fields.map((f, i) => `${f.label}=${ctlStatus.els[i].textContent}`).join(" · ");
+  if (line !== ctlStatus.last) { ctlStatus.last = line; console.log("VOXELED_CTL_STATUS", line); } // only on change (status arrives a few times a second)
   ctlSleep = m.idle_sleep > 0 ? { idle: m.idle || 0, limit: m.idle_sleep } : null;
 }
 addEventListener("keydown", (e) => { if (e.repeat || ["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName) || !document.body.classList.contains("ctl")) return; const k = ctlKeys[e.key.toLowerCase()]; if (k) { ctlPress(k[0], k[1], true); e.preventDefault(); } });
