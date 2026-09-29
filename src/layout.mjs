@@ -175,6 +175,8 @@ export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = nul
   const join = doc.join === false ? { enabled: false } : { enabled: true, fixture: doc.join?.fixture || "dot", ttlS: doc.join?.ttlS ?? 30, heightMM: doc.join?.heightMM ?? 1200, max: doc.join?.max ?? 64 };
   for (const inst of instances) if (inst.track && !trackers.some((t) => t.name === inst.track)) throw new Error(`instance "${inst.name}" tracks "${inst.track}" but there is no such tracker (trackers: ${trackers.map((t) => t.name).join(", ") || "none"})`);
   const merge = doc.merge ? { mode: doc.merge.mode || "priority", fallback: doc.merge.fallback || "show", timeoutMs: doc.merge.timeoutMs ?? 1000 } : undefined;
+  // Controls: the piece's own buttons + the state it reports (Thread's pedestals) — drawn by the viewer, spoken over the bus.
+  const controls = resolveControls(doc.controls);
 
   const scene = buildSceneFromLayout({
     name: doc.name || "layout",
@@ -189,6 +191,7 @@ export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = nul
       ...(trackers.length ? { trackers } : {}),
       join,
       ...(merge ? { merge } : {}),
+      ...(controls ? { controls } : {}),
     },
   });
 
@@ -221,6 +224,28 @@ export function resolveInputs(list) {
     if (protocol === "sacn" && inp.universes) out.universes = inp.universes;
     return out;
   });
+}
+
+// controls: the physical interface of a piece, as data the viewer can draw and any bus client can
+// speak. Panels of buttons send a JSON message on press/release ($button / $pressed substituted);
+// a status entry names the JSON message that reports the piece's state and the fields to show.
+//   controls:
+//     panels:
+//       - { name: pedestal A, buttons: [x, y, z], keys: { q: x, w: y, e: z },
+//           message: { type: button, podpi: a, button: $button, pressed: $pressed } }
+//     status: { type: status, fields: [{ label: strand X, path: states.x }, { label: pedestals, path: podpi }] }
+export function resolveControls(c) {
+  if (!c) return null;
+  const panels = (c.panels || []).map((p, i) => {
+    const buttons = (p.buttons || []).map(String);
+    if (!buttons.length) throw new Error(`controls.panels[${i}]: needs a list of buttons`);
+    if (!p.message || typeof p.message !== "object") throw new Error(`controls.panels[${i}]: needs a message template (an object with $button / $pressed)`);
+    const keys = {};
+    for (const [k, b] of Object.entries(p.keys || {})) { if (!buttons.includes(String(b))) throw new Error(`controls.panels[${i}]: key "${k}" → unknown button "${b}"`); keys[String(k).toLowerCase()] = String(b); }
+    return { name: p.name || `panel ${i + 1}`, buttons, keys, message: p.message, hint: p.hint || null };
+  });
+  const status = c.status ? { type: c.status.type || "status", fields: (c.status.fields || []).map((f, i) => { if (!f.path) throw new Error(`controls.status.fields[${i}]: needs a path`); return { label: f.label || f.path, path: String(f.path) }; }) } : null;
+  return { panels, status };
 }
 
 export const TRACKER_SOURCES = ["ws", "phone", "psn"];

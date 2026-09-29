@@ -10,12 +10,14 @@
 //                each its own strand (pixel.strand), concatenated in data order
 //   angleFrom    a path (name or points): angle 0 points TOWARD it — Thread measures rope angles
 //                from the inboard direction (tube → spine). Without it, angle 0 = `up` (projected ⟂ T)
+//   diffuserMM   the rope's own diameter (26 = Thread's diffused rope) — the viewer draws each strand
+//                as a lit tube of that size (emitter.diffuserMM); 0 for bare LEDs on a string
 //
 //   { type: rope, params: { path: tube-1, count: 600, radiusMM: 25, angleDeg: [60, 180, 300], angleFrom: spine } }
 import { add, sub, scale, dot, cross, norm, len } from "../vec.mjs";
 import { resolvePath, samplePath, transportFrames } from "../paths.mjs";
 
-export function ropeFixture({ path, paths = {}, count, pitchMM, radiusMM = 0, angleDeg = 0, twistDegPerM = 0, startMM = 0, endMM, up = [0, 1, 0], angleFrom = null } = {}) {
+export function ropeFixture({ path, paths = {}, count, pitchMM, radiusMM = 0, angleDeg = 0, twistDegPerM = 0, startMM = 0, endMM, up = [0, 1, 0], angleFrom = null, diffuserMM = 26 } = {}) {
   const P = resolvePath(path, paths);
   let frames = transportFrames(samplePath(P, { count, spacingMM: pitchMM, startMM, endMM }), { up });
   if (angleFrom != null) {
@@ -47,7 +49,7 @@ export function ropeFixture({ path, paths = {}, count, pitchMM, radiusMM = 0, an
     meta: {
       source: "rope", pitchMM: pitch, points: pixels.length, strands: angles.length, perStrand: n, radiusMM, angleDeg: angles, twistDegPerM, angleFrom: typeof angleFrom === "string" ? angleFrom : angleFrom ? "points" : null,
       // a diffused rope: wide lobe, soft body
-      emitter: { viewingAngleDeg: 170, sizeFrac: 0.8, coreFrac: 0.6, softness: 0.7, gain: 1.5, glow: 1.2 },
+      emitter: { viewingAngleDeg: 170, sizeFrac: 0.8, coreFrac: 0.6, softness: 0.7, gain: 1.5, glow: 1.2, ...(diffuserMM > 0 ? { diffuserMM } : {}) },
     },
   };
 }

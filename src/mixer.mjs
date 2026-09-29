@@ -12,15 +12,24 @@ const smoothstep = (x) => {
 };
 
 // scenes: [{ name, render(px,t,ctx)->[r,g,b] }]
-// control (optional, shared/mutable): { mode:'auto'|'manual', fader, a, b }
+// control (optional, shared/mutable): { mode:'auto'|'manual'|'pin', fader, a, b, pin }
+//   auto    cycle through every scene: hold, crossfade to the next
+//   manual  a UI drives the fader between decks a and b
+//   pin     one scene, picked by name or index (a page's pattern bar): crossfade from whatever was
+//           showing when it was pinned, then hold it — `pin(idx, tNow)` sets it up
 export function createShow({ scenes, holdS = 4, fadeS = 2.5, control = null }) {
   const S = scenes.length;
+  const wrap = (k) => ((k % S) + S) % S;
 
   // Decide which two scenes and how much blend, at time t. Deterministic in AUTO (stable within
-  // a frame because all pixels share one t); read from `control` in MANUAL.
+  // a frame because all pixels share one t); read from `control` in MANUAL / PIN.
   function resolve(t) {
     if (control?.mode === "manual") {
-      return { a: ((control.a % S) + S) % S, b: ((control.b % S) + S) % S, x: Math.max(0, Math.min(1, control.fader)) };
+      return { a: wrap(control.a), b: wrap(control.b), x: Math.max(0, Math.min(1, control.fader)) };
+    }
+    if (control?.mode === "pin" && control.pin) {
+      const { from, to, at } = control.pin;
+      return { a: wrap(from), b: wrap(to), x: fadeS > 0 ? smoothstep((t - at) / fadeS) : 1 };
     }
     if (S < 2) return { a: 0, b: 0, x: 0 };
     const cycle = holdS + fadeS;
@@ -41,5 +50,17 @@ export function createShow({ scenes, holdS = 4, fadeS = 2.5, control = null }) {
     return [lerp(ca[0], cb[0], x), lerp(ca[1], cb[1], x), lerp(ca[2], cb[2], x)];
   }
 
-  return { shade, resolve, scenes, names: scenes.map((s) => s.name) };
+  // The scene the eye sees at t (the deck with the larger share of the blend).
+  const current = (t) => { const r = resolve(t); return r.x < 0.5 ? r.a : r.b; };
+  // Pin scene `which` (index or name) from time tNow on: fade in from what's showing now, then hold.
+  function pin(which, tNow = 0) {
+    if (!control) throw new Error("pin needs a control object");
+    const to = typeof which === "number" ? which : scenes.findIndex((s) => s.name === which);
+    if (!(to >= 0 && to < S)) throw new Error(`no scene "${which}" (have: ${scenes.map((s) => s.name).join(", ")})`);
+    const from = current(tNow);
+    control.pin = { from, to, at: tNow };
+    control.mode = "pin";
+    return to;
+  }
+  return { shade, resolve, current, pin, scenes, names: scenes.map((s) => s.name) };
 }

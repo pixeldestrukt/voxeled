@@ -52,6 +52,46 @@
   .btns button { flex: 1 1 auto; }
   #b-status { font-size: 11px; color: var(--dim); margin-top: 8px; min-height: 14px; }
   #b-status.dirty { color: #ffcf4d; }
+  /* presentation (?ui=bar): a pattern bar along the bottom, the live indicator top-right, the piece's
+     own controls top-left — the HUD/help stay out of the way; ?embed=1 hides everything */
+  body.bar #hud, body.bar #help, body.embed #hud, body.embed #help, body.embed #bar, body.embed #livehint, body.embed #livebanner, body.embed #ctl, body.embed #livepanel { display: none; }
+  #bar { position: fixed; z-index: 10; right: clamp(12px, 4vw, 40px); bottom: clamp(14px, 4vh, 36px); display: none; flex-wrap: wrap; justify-content: flex-end; gap: 4px 18px; pointer-events: auto; }
+  body.bar #bar { display: flex; }
+  #bar button { background: none; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 4px 0; color: #fff; opacity: .45; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; transition: opacity .2s, border-color .2s; }
+  #bar button:hover { opacity: .85; }
+  #bar button.on { opacity: 1; border-color: #fff; }
+  #bar .sep { width: 1px; background: #444; margin: 2px 0; }
+  body.bar.live #bar button:not(.on):not(.b-live) { opacity: .25; }
+  body.bar.live #bar button.on:not(.b-live) { opacity: .45; border-color: transparent; }
+  #livehint { position: fixed; z-index: 10; top: 14px; right: clamp(12px, 4vw, 40px); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: #6b7a99; pointer-events: none; display: none; }
+  body.bar.live #livehint { display: block; }
+  #livehint .dot { width: 10px; height: 10px; margin-right: 8px; background: #333; box-shadow: none; transition: background .1s, box-shadow .1s; vertical-align: -1px; }
+  #livehint .dot.data { background: #35e07a; box-shadow: 0 0 10px #35e07a; }
+  #livehint .dot.open, #livehint .dot.connecting { background: #e0a635; animation: blink 1s steps(2, start) infinite; }
+  #livehint .dot.error, #livehint .dot.closed { background: #e04040; box-shadow: 0 0 8px #e04040; }
+  #livehint .dot.asleep { background: #6b7fa8; }
+  #livehint.live { color: #dfe6f3; }
+  #livehint.nodata { color: #e0a635; } #livehint.down { color: #e04040; }
+  #livebanner { position: fixed; z-index: 10; left: 50%; top: 64px; transform: translateX(-50%); padding: 14px 26px; border: 2px solid #e0a635; background: rgba(10,12,20,.9); color: #e0a635; text-align: center; letter-spacing: .12em; text-transform: uppercase; pointer-events: none; animation: blink 1.2s steps(2, start) infinite; }
+  #livebanner[hidden] { display: none; } #livebanner b { display: block; font-weight: 400; font-size: clamp(20px, 3vw, 34px); line-height: 1.1; }
+  #livebanner span { display: block; margin-top: 6px; font-size: 11px; color: #8da0c2; letter-spacing: .08em; }
+  #livebanner.down { border-color: #e04040; color: #e04040; } #livebanner.asleep { border-color: #6b7fa8; color: #9fb3d9; animation: none; }
+  @keyframes blink { 50% { opacity: .25; } }
+  #livepanel { right: clamp(12px, 4vw, 40px); bottom: 64px; width: min(420px, calc(100vw - 24px)); }
+  #livepanel .btns { margin-top: 0; } #livepanel input { flex: 1; min-width: 0; }
+  #livepanel small { display: block; color: var(--dim); margin-top: 8px; line-height: 1.5; }
+  #livepanel[hidden] { display: none; }
+  /* the piece's own controls (layout controls:) — button panels + reported state */
+  #ctl { top: 14px; left: clamp(12px, 4vw, 40px); display: none; gap: 22px; align-items: flex-start; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; user-select: none; }
+  body.ctl #ctl { display: flex; } body.bar:not(.ctl) #ctl { display: none; }
+  body:not(.bar) #ctl { top: auto; bottom: 34px; left: 12px; }
+  #ctl .pan { display: flex; flex-direction: column; gap: 8px; } #ctl .pan > label { color: var(--dim); } #ctl .pan > label b { color: var(--ink); font-weight: 400; }
+  #ctl .keys { display: flex; gap: 8px; }
+  #ctl .key { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #444; background: #161616; color: #fff; font-size: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; touch-action: none; transition: background .08s, border-color .08s, box-shadow .08s; padding: 0; }
+  #ctl .key small { font-size: 9px; color: var(--dim); letter-spacing: .05em; } #ctl .key:hover { border-color: #777; }
+  #ctl .key.down { background: #fff; color: #000; border-color: #fff; box-shadow: 0 0 14px #fff8; } #ctl .key.down small { color: #333; }
+  #ctl .st { display: flex; flex-direction: column; gap: 5px; justify-content: center; min-width: 180px; white-space: nowrap; }
+  #ctl .st div { display: flex; justify-content: space-between; gap: 16px; } #ctl .st span:last-child { color: var(--ink); } #ctl .st .off { color: var(--dim); }
 </style>
 <script type="importmap">
 { "imports": {
@@ -157,7 +197,17 @@
 </div>
 <div id="drop">drop files to add them to the project · a .yaml becomes the layout · a bundle .json opens a project</div>
 
-<div id="help">drag orbit · scroll zoom · <b>E</b> builder · <b>S</b> sim · <b>B</b> bloom · <b>M</b> model · <b>N</b> normals · <b>[</b> <b>]</b> crossfade · <b>A</b> auto · <b>P</b> project</div>
+<div id="help">drag orbit · scroll zoom · <b>E</b> builder · <b>S</b> sim · <b>B</b> bloom · <b>M</b> model · <b>N</b> normals · <b>R</b> ropes · <b>O</b> orbit · <b>[</b> <b>]</b> crossfade · <b>A</b> auto · <b>P</b> project</div>
+
+<div id="bar"></div>
+<div id="livehint"><span class="dot" id="l-dot"></span><span id="l-text"></span></div>
+<div id="livebanner" hidden><b id="l-title">no data</b><span id="l-detail"></span></div>
+<div id="livepanel" class="panel" hidden>
+  <div class="lab" style="margin-top:0">live data source (websocket)</div>
+  <div class="btns"><input id="l-url" placeholder="ws://localhost:6480" spellcheck="false" /><button id="l-go">connect</button></div>
+  <small id="l-help">Raw RGB frames (this piece's pixel order) or Art-Net packets, one binary message per frame — a voxeled hub's <code>/bus</code>, or a bridge next to the controller. While connected, only what arrives is shown; pick a pattern to leave live mode.</small>
+</div>
+<div id="ctl" class="panel"></div>
 
 <script type="module">
 import * as THREE from "three";
@@ -174,6 +224,12 @@ import { GLTFLoader } from "./vendor/loaders/GLTFLoader.js";
 const $ = (id) => document.getElementById(id);
 const qs = new URLSearchParams(location.search);
 const D2R = Math.PI / 180;
+const qsOn = (name, dflt) => (qs.has(name) ? qs.get(name) !== "0" : dflt);
+// Presentation: ?ui=bar puts a pattern bar + toggles along the bottom (a piece's public page);
+// ?embed=1 is a bare canvas for a tile. Both auto-orbit and hide the authoring HUD.
+const barMode = qs.get("ui") === "bar", embedMode = qsOn("embed", false);
+document.body.classList.toggle("bar", barMode && !embedMode);
+document.body.classList.toggle("embed", embedMode);
 
 // ── renderer / scene / camera ─────────────────────────────────────────────────
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -183,8 +239,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping; // sim mode is HDR-ish (emis
 document.body.appendChild(renderer.domElement);
 
 const scene3 = new THREE.Scene();
-scene3.background = new THREE.Color(0x05060a);
-scene3.add(new THREE.AmbientLight(0x8090b0, 0.9)); // lights only matter for structure meshes
+scene3.background = new THREE.Color(/^[0-9a-f]{6}$/i.test(qs.get("bg") || "") ? parseInt(qs.get("bg"), 16) : 0x05060a);
+scene3.add(new THREE.HemisphereLight(0x8fa3b8, 0x1a1a1a, 1.1)); // lights only matter for structure meshes
 const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
 keyLight.position.set(0.6, 1, 0.8);
 scene3.add(keyLight);
@@ -192,6 +248,10 @@ const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 1, 5000
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
+controls.autoRotate = qsOn("orbit", (barMode || embedMode) && !qs.has("scene") && !qs.has("cam"));
+controls.autoRotateSpeed = 0.35;
+controls.enableZoom = controls.enablePan = !embedMode;
+controls.addEventListener("start", () => { controls.autoRotate = false; syncBar(); });
 
 let composer = null, bloomPass = null;
 addEventListener("resize", () => {
@@ -218,7 +278,8 @@ const hubAPI = {
 
 // ── state ─────────────────────────────────────────────────────────────────────
 let scene = null, N = 0, mesh = null, simMesh = null, normalsLines = null;
-let simOn = qs.get("sim") === "1", bloomOn = true, normalsOn = qs.get("normals") === "1"; // view state survives scene rebuilds
+let simOn = qs.get("sim") === "1", bloomOn = qsOn("bloom", true), normalsOn = qs.get("normals") === "1"; // view state survives scene rebuilds
+let ropesOn = qsOn("ropes", true), ropes = []; // diffused ropes: each strand of a fixture with emitter.diffuserMM as a lit tube (sim mode)
 let modelMode = { translucent: 0, opaque: 1, hidden: 2 }[qs.get("model")] ?? (+qs.get("model") || 0); // 0 translucent · 1 opaque · 2 hidden (?model=opaque)
 let framed = false, groundGrid = null;
 const structures = [];
@@ -276,13 +337,81 @@ const SIM_FRAG = /* glsl */`
   }`;
 const simMat = new THREE.ShaderMaterial({ vertexShader: SIM_VERT, fragmentShader: SIM_FRAG, uniforms: { uBacking: { value: new THREE.Color(0x0a0c14) }, uExposure: { value: 1.0 } }, side: THREE.DoubleSide });
 
+// ── diffused ropes: a strand of LEDs inside a diffuser, drawn as one lit tube ─────────────────
+// A fixture whose emitter carries `diffuserMM` (a rope fixture, Thread's baked ropes) is drawn per
+// strand as a tube through its LEDs: each ring takes its LED's colour from a per-pixel colour
+// texture (the same frame the dots get), lit through a 270° arc from the LED's normal with the
+// strip's own shadow at its back, dimmed as it turns away from the eye. Thread's page, generalized.
+const COLOR_W = 1024;
+let colorTex = null, colorData = null;
+const ROPE_VERT = /* glsl */`
+  uniform sampler2D uColors; uniform vec2 uTexSize; uniform float uGain;
+  attribute float aLed, aProfile;
+  varying vec3 vColor; varying float vProfile, vFace;
+  void main() {
+    float row = floor(aLed / uTexSize.x), col = aLed - row * uTexSize.x;
+    vColor = texture2D(uColors, vec2((col + 0.5) / uTexSize.x, (row + 0.5) / uTexSize.y)).rgb * uGain;
+    vProfile = aProfile;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vec3 n = normalize(normalMatrix * normal);
+    float f = max(dot(n, normalize(-mv.xyz)), 0.0);
+    vFace = 0.35 + 0.65 * f;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const ROPE_FRAG = /* glsl */`
+  precision highp float; uniform vec3 uBacking;
+  varying vec3 vColor; varying float vProfile, vFace;
+  void main() { gl_FragColor = vec4(uBacking + vColor * vProfile * vFace, 1.0); }`;
+function ensureColorTex(n) {
+  const h = Math.max(1, Math.ceil(n / COLOR_W));
+  if (colorTex && colorTex.image.height === h) return;
+  colorTex?.dispose();
+  colorData = new Uint8Array(COLOR_W * h * 4);
+  colorTex = new THREE.DataTexture(colorData, COLOR_W, h, THREE.RGBAFormat, THREE.UnsignedByteType);
+  colorTex.magFilter = colorTex.minFilter = THREE.NearestFilter; colorTex.colorSpace = THREE.SRGBColorSpace;
+  colorTex.needsUpdate = true;
+}
+// A tube through the strand's LEDs (fixture-local coords): one ring per LED, the ring's "up" is
+// the LED normal (so profile angle = angle from the normal), rings joined by quads. Returns geometry.
+function ropeGeometry(idx, P, Nn, radius, RADIAL = 8) {
+  const n = idx.length, pos = new Float32Array(n * (RADIAL + 1) * 3), nor = new Float32Array(n * (RADIAL + 1) * 3), led = new Float32Array(n * (RADIAL + 1)), prof = new Float32Array(n * (RADIAL + 1));
+  const T = new THREE.Vector3(), U = new THREE.Vector3(), V = new THREE.Vector3(), C = new THREE.Vector3(), D = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    const a = idx[Math.max(0, i - 1)], b = idx[Math.min(n - 1, i + 1)], k = idx[i];
+    T.set(P[b * 3] - P[a * 3], P[b * 3 + 1] - P[a * 3 + 1], P[b * 3 + 2] - P[a * 3 + 2]);
+    if (T.lengthSq() < 1e-9) T.set(0, 1, 0); T.normalize();
+    U.set(Nn[k * 3], Nn[k * 3 + 1], Nn[k * 3 + 2]); U.addScaledVector(T, -U.dot(T));
+    if (U.lengthSq() < 1e-6) U.set(1, 0, 0).addScaledVector(T, -T.x); U.normalize();
+    V.crossVectors(T, U);
+    C.set(P[k * 3], P[k * 3 + 1], P[k * 3 + 2]);
+    for (let j = 0; j <= RADIAL; j++) {
+      const th = (j / RADIAL) * Math.PI * 2, ca = Math.cos(th);
+      D.copy(U).multiplyScalar(ca).addScaledVector(V, Math.sin(th));
+      const vi = i * (RADIAL + 1) + j;
+      pos[vi * 3] = C.x + D.x * radius; pos[vi * 3 + 1] = C.y + D.y * radius; pos[vi * 3 + 2] = C.z + D.z * radius;
+      nor[vi * 3] = D.x; nor[vi * 3 + 1] = D.y; nor[vi * 3 + 2] = D.z;
+      const t = Math.min(1, Math.max(0, (ca + 0.75) / 0.45)); // 270° diffuser: full on the outward half, shadow at the back
+      led[vi] = k; prof[vi] = t * t * (3 - 2 * t) * (0.75 + 0.25 * Math.max(ca, 0));
+    }
+  }
+  const index = [];
+  for (let i = 0; i + 1 < n; i++) for (let j = 0; j < RADIAL; j++) { const a = i * (RADIAL + 1) + j, b = a + RADIAL + 1; index.push(a, b, a + 1, b, b + 1, a + 1); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute("position", new THREE.BufferAttribute(pos, 3)); g.setAttribute("normal", new THREE.BufferAttribute(nor, 3));
+  g.setAttribute("aLed", new THREE.BufferAttribute(led, 1)); g.setAttribute("aProfile", new THREE.BufferAttribute(prof, 1));
+  g.setIndex(index);
+  return g;
+}
+
 // ── build / rebuild the scene objects from a scene JSON (in place: camera stays) ──
 function disposeSceneObjects() {
   for (const o of [mesh, simMesh, normalsLines]) if (o) { scene3.remove(o); o.geometry.dispose(); }
   for (const st of structures) scene3.remove(st.group);
-  structures.length = 0;
+  for (const r of ropes) { scene3.remove(r.group); for (const m of r.meshes) { m.geometry.dispose(); m.material.dispose(); } }
+  structures.length = 0; ropes = []; ropePixel = null;
   mesh = simMesh = normalsLines = null;
 }
+let ropePixel = null; // per pixel: 1 if a rope tube carries it (its sim quad is hidden while ropes are on)
 
 function buildSceneObjects(sc) {
   disposeSceneObjects();
@@ -337,8 +466,29 @@ function buildSceneObjects(sc) {
   normalsLines.geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(N * 6), 3));
   normalsLines.visible = normalsOn;
   normalsLines.userData.qlen = ledSize * 3;
+  // ropes: per instance with a diffuser, one tube per strand through its LEDs in data order
+  ensureColorTex(N);
+  ropePixel = new Uint8Array(N);
+  for (let k = 0; k < instTf.length; k++) {
+    const e = emitters[k] || EMIT_DEFAULT, dia = +e.diffuserMM || 0;
+    if (!(dia > 0)) continue;
+    const strands = new Map();
+    for (let i = 0; i < N; i++) if (instOf[i] === k) { const sk = px[i].strand || 0; if (!strands.has(sk)) strands.set(sk, []); strands.get(sk).push(i); }
+    const group = new THREE.Group(); group.name = `ropes:${k}`;
+    const mat = new THREE.ShaderMaterial({ vertexShader: ROPE_VERT, fragmentShader: ROPE_FRAG, uniforms: { uColors: { value: colorTex }, uTexSize: { value: new THREE.Vector2(COLOR_W, colorTex.image.height) }, uGain: { value: e.gain ?? 1 }, uBacking: { value: new THREE.Color(0x07080c) } } });
+    const meshes = [];
+    for (const idx of strands.values()) {
+      if (idx.length < 2) continue;
+      const m = new THREE.Mesh(ropeGeometry(idx, localP, localN, dia / 2), mat);
+      m.frustumCulled = false; group.add(m); meshes.push(m);
+      for (const i of idx) ropePixel[i] = 1;
+    }
+    if (!meshes.length) continue;
+    scene3.add(group); ropes.push({ group, meshes, inst: k, strands: strands.size });
+  }
   for (let k = 0; k < instTf.length; k++) placeInstance(k);
   scene3.add(mesh, simMesh, normalsLines);
+  if (ropes.length) console.log("VOXELED_ROPES_READY", ropes.length, "fixture(s)", ropes.reduce((a, r) => a + r.meshes.length, 0), "rope(s)");
 
   if (!composer) {
     composer = new EffectComposer(renderer);
@@ -354,24 +504,30 @@ function buildSceneObjects(sc) {
     const gspan = Math.max(hi[0] - lo[0], hi[2] - lo[2]) * 1.6;
     const ground = new THREE.GridHelper(gspan, Math.max(6, Math.min(40, Math.round(gspan / 500))), 0x33436b, 0x172036);
     ground.position.set(center.x, lo[1], center.z);
+    ground.visible = qsOn("grid", !(barMode || embedMode));
     scene3.add(ground); groundGrid = ground;
     const nbar = [0, 0, 0];
     for (const p of px) { nbar[0] += p.n[0]; nbar[1] += p.n[1]; nbar[2] += p.n[2]; }
     const horiz = Math.hypot(nbar[0], nbar[2]) > 0.05 * N ? [nbar[0], nbar[2]] : [0, 1];
-    const hl = Math.hypot(horiz[0], horiz[1]);
+    const hl = Math.hypot(horiz[0], horiz[1]), zoom = +qs.get("zoom") > 0 ? +qs.get("zoom") : 1; // ?zoom=1.5 → closer
     camera.up.set(0, 1, 0);
-    camera.position.set(center.x + (horiz[0] / hl) * diag * 1.15, center.y + diag * 0.4, center.z + (horiz[1] / hl) * diag * 1.15);
+    camera.position.set(center.x + (horiz[0] / hl) * diag * 1.15 / zoom, center.y + diag * 0.4 / zoom, center.z + (horiz[1] / hl) * diag * 1.15 / zoom);
     if (qs.has("az") || qs.has("el")) {
-      const az = ((+qs.get("az") || 0) * D2R), el = ((+(qs.get("el") ?? 15)) * D2R), r = diag * 1.2;
+      const az = ((+qs.get("az") || 0) * D2R), el = ((+(qs.get("el") ?? 15)) * D2R), r = diag * 1.2 / zoom;
       camera.position.set(center.x + r * Math.cos(el) * Math.sin(az), center.y + r * Math.sin(el), center.z + r * Math.cos(el) * Math.cos(az));
     }
     controls.target.copy(center);
+    // ?cam=x,y,z&target=x,y,z (mm) pins a view for sharing
+    const vec = (name) => { const a = (qs.get(name) || "").split(",").map(Number); return a.length === 3 && a.every(Number.isFinite) ? a : null; };
+    if (vec("cam")) camera.position.set(...vec("cam"));
+    if (vec("target")) controls.target.set(...vec("target"));
     controls.update();
     framed = true;
   }
   applyMode();
   loadStructures(sc);
   $("r-inputs").hidden = !(sc.meta?.inputs?.length);
+  buildBar(sc); buildControls(sc);
   const nv = sc.meta?.vantages?.length || 0;
   $("v-stand").hidden = !nv; $("r-stand").hidden = !nv;
   if (standing != null) { if (standing < nv) enterVantage(standing, { keepLook: true }); else leaveVantage(); }
@@ -392,7 +548,8 @@ function placeInstance(k) {
     _dummy.position.set(p[0], p[1], p[2]); _dummy.quaternion.identity(); _dummy.scale.set(1, 1, 1); _dummy.updateMatrix();
     mesh.setMatrixAt(i, _dummy.matrix);
     _nv.set(n[0], n[1], n[2]).normalize(); _q.setFromUnitVectors(_z, _nv);
-    _dummy.quaternion.copy(_q); _dummy.scale.set(bodySize[i], bodySize[i], 1); _dummy.updateMatrix();
+    const hide = ropesOn && ropePixel?.[i], bs = hide ? 0 : bodySize[i];
+    _dummy.quaternion.copy(_q); _dummy.scale.set(bs, bs, 1); _dummy.updateMatrix();
     simMesh.setMatrixAt(i, _dummy.matrix);
     qpos.set([p[0], p[1], p[2], p[0] + n[0] * qlen, p[1] + n[1] * qlen, p[2] + n[2] * qlen], i * 6);
   }
@@ -400,6 +557,7 @@ function placeInstance(k) {
   mesh.instanceColor.needsUpdate = true; simMesh.instanceColor.needsUpdate = true;
   normalsLines.geometry.attributes.position.needsUpdate = true;
   for (const st of structures) if (st.inst === k) { st.group.position.set(...tf.pos); st.group.rotation.set(tf.rotDeg[0] * D2R, tf.rotDeg[1] * D2R, tf.rotDeg[2] * D2R, "ZYX"); }
+  for (const r of ropes) if (r.inst === k) { r.group.position.set(...tf.pos); r.group.rotation.set(tf.rotDeg[0] * D2R, tf.rotDeg[1] * D2R, tf.rotDeg[2] * D2R, "ZYX"); }
 }
 
 // ── structures: the sculpture's own CAD around the LEDs ──────────────────────────
@@ -419,7 +577,7 @@ async function loadStructures(sc) {
       const mats = {
         glass: new THREE.MeshStandardMaterial({ color: new THREE.Color(s.color), transparent: true, opacity: s.opacity, depthWrite: false, side: THREE.DoubleSide, roughness: 0.8, metalness: 0.2 }),
         solid: new THREE.MeshStandardMaterial({ color: new THREE.Color(s.color), side: THREE.DoubleSide, roughness: 0.75, metalness: 0.25 }),
-        sim: new THREE.MeshStandardMaterial({ color: 0x171a24, roughness: 0.85, metalness: 0.15, side: THREE.DoubleSide }),
+        sim: new THREE.MeshStandardMaterial({ color: new THREE.Color(s.color), roughness: 0.4, metalness: 0.7, side: THREE.DoubleSide }),
       };
       const meshes = [];
       object.traverse((o) => { if (o.isMesh) { o.material = mats.glass; meshes.push(o); } });
@@ -519,6 +677,7 @@ function cycleStand() { const n = scene?.meta?.vantages?.length || 0; if (!n) re
 function applyMode() {
   if (mesh) mesh.visible = !simOn;
   if (simMesh) simMesh.visible = simOn;
+  for (const r of ropes) r.group.visible = simOn && ropesOn;
   if (normalsLines) normalsLines.visible = normalsOn;
   $("v-sim").classList.toggle("on", simOn); $("v-bloom").classList.toggle("on", simOn && bloomOn); $("v-bloom").disabled = !simOn;
   $("v-normals").classList.toggle("on", normalsOn); $("v-build").classList.toggle("on", buildOn); $("v-stand").classList.toggle("on", standing != null);
@@ -532,6 +691,8 @@ function applyMode() {
   if (backdrop) [].concat(backdrop.material).forEach((m) => m.color.setScalar(simOn ? 0.45 : 1));
   const n = scene?.meta?.structures?.length || 0;
   $("h-model").textContent = n ? `${structures.length}/${n} · ${["translucent", "opaque", "hidden"][modelMode]}` : "—";
+  if (groundGrid) groundGrid.visible = standing == null && qsOn("grid", !(barMode || embedMode));
+  syncBar();
 }
 
 // ── poses: tracked things (wands, phones, PSN tags) — move their instances, draw a marker ──────
@@ -579,6 +740,7 @@ async function boot() {
   console.log("VOXELED_SIM_READY", scene.meta?.instances?.length ?? 1, "emitter profile(s)");
   if (qs.get("build") === "1") await toggleBuilder(true);
   if (qs.has("select")) select(+qs.get("select"));
+  if (qs.has("scene")) pickScene(qs.get("scene"), false);
 }
 async function reloadScene() {
   const keep = selected != null ? scene.meta.instances[selected]?.name : null;
@@ -609,6 +771,7 @@ function applyFrame(d) {
   const n = Math.min(N, (d.length / 3) | 0);
   for (let i = 0; i < n; i++) { tmp.setRGB(d[i * 3] / 255, d[i * 3 + 1] / 255, d[i * 3 + 2] / 255); mesh.setColorAt(i, tmp); simMesh.setColorAt(i, tmp); }
   mesh.instanceColor.needsUpdate = true; simMesh.instanceColor.needsUpdate = true;
+  if (colorData) { for (let i = 0; i < n; i++) { colorData[i * 4] = d[i * 3]; colorData[i * 4 + 1] = d[i * 3 + 1]; colorData[i * 4 + 2] = d[i * 3 + 2]; colorData[i * 4 + 3] = 255; } colorTex.needsUpdate = true; }
   frameCount++;
 }
 
@@ -629,14 +792,15 @@ async function bootStatic() {
   } catch (e) { console.warn("VOXELED_PROJECT_LOAD_FAILED", e.message); }
   if (!p) { try { p = await local.loadHostedProject(exampleUrl("columns")); } catch (e) { pstatus(`✗ ${e.message}`); throw e; } }
   await openProject(p);
-  if (qs.has("ws")) { $("p-ws").value = qs.get("ws"); api.connectRemote(qs.get("ws")); }
+  if (qs.has("ws")) liveConnect(qs.get("ws"));
 }
 function pstatus(msg) { $("p-status").textContent = msg; }
 async function openProject(p) {
   api?.stop?.();
   project = p;
   project.onSave = async (pr) => { await store.putProject(pr); try { localStorage.setItem("voxeled.project", pr.name); } catch {} pstatus(`saved "${pr.name}" in this browser`); console.log("VOXELED_PROJECT_SAVED", pr.name); };
-  api = local.createLocalHub({ project, onFrame: applyFrame, onScene: () => reloadScene() });
+  api = local.createLocalHub({ project, onFrame: applyFrame, onScene: () => reloadScene(), onMessage: onRemoteMessage });
+  api.onLive(renderLive);
   buildSceneObjects(api.scene);
   $("h-dot").classList.add("live"); $("h-bus").lastChild.textContent = "local hub (this page)";
   $("p-name").textContent = p.name + (p.source ? " · hosted" : "");
@@ -709,9 +873,9 @@ $("p-import").addEventListener("click", () => $("p-import-input").click());
 $("p-import-input").addEventListener("change", async (e) => { const f = e.target.files[0]; if (!f) return; try { await openProject(store.importBundle(await f.text())); pstatus("bundle opened — save to keep it"); } catch (err) { pstatus(`✗ ${err.message}`); } });
 $("p-ws-go").addEventListener("click", () => {
   if (api.kind !== "local") return;
-  if ($("p-ws-go").textContent === "disconnect") { api.disconnectRemote(); $("p-ws-go").textContent = "connect"; pstatus("remote disconnected"); return; }
+  if ($("p-ws-go").textContent === "disconnect") { liveDisconnect(); pstatus("remote disconnected"); return; }
   const url = $("p-ws").value.trim(); if (!url) return;
-  if (api.connectRemote(url)) { $("p-ws-go").textContent = "disconnect"; pstatus(`live frames from ${url} (priority over the show)`); } else pstatus("✗ bad WebSocket URL");
+  if (liveConnect(url)) pstatus(`live frames from ${url} (priority over the show)`); else pstatus("✗ bad WebSocket URL");
 });
 // drop files anywhere on the page
 let dragDepth = 0;
@@ -719,6 +883,154 @@ addEventListener("dragenter", (e) => { if (!staticMode) return; e.preventDefault
 addEventListener("dragleave", () => { if (!staticMode) return; if (--dragDepth <= 0) { dragDepth = 0; $("drop").classList.remove("on"); } });
 addEventListener("dragover", (e) => { if (staticMode) e.preventDefault(); });
 addEventListener("drop", (e) => { if (!staticMode) return; e.preventDefault(); dragDepth = 0; $("drop").classList.remove("on"); if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files); });
+
+// ── presentation: the pattern bar, live mode, the piece's controls ─────────────────────────
+// The bar lists the show's scenes (click = pin one, crossfading from what's on) and the view
+// toggles; it is the public face of a piece (?ui=bar). Live mode connects a bridge/hub socket:
+// in the bar it is exclusive (only what arrives is shown, dark otherwise — a dark piece means
+// the sender is silent); from the project panel it merges over the show. ?live=merge|only overrides.
+let barButtons = [], barToggles = {}, currentScene = -1;
+function buildBar(sc) {
+  const bar = $("bar"); bar.innerHTML = ""; barButtons = []; barToggles = {};
+  const names = sc.meta?.show?.scenes || [];
+  names.forEach((name, i) => { const b = document.createElement("button"); b.textContent = name; b.addEventListener("click", () => pickScene(i, true)); bar.appendChild(b); barButtons.push(b); });
+  if (names.length) bar.appendChild(Object.assign(document.createElement("span"), { className: "sep" }));
+  const toggles = [
+    ["live", () => api?.live?.wanted, () => { const p = $("livepanel"); p.hidden = !p.hidden; if (!p.hidden) $("l-url").focus(); }, staticMode],
+    ["orbit", () => controls.autoRotate, () => { controls.autoRotate = !controls.autoRotate; }, true],
+    ["sim", () => simOn, () => { simOn = !simOn; applyMode(); }, true],
+    ["glow", () => simOn && bloomOn, () => { bloomOn = !bloomOn; applyMode(); }, true],
+    ["ropes", () => simOn && ropesOn, () => { ropesOn = !ropesOn; for (let k = 0; k < instTf.length; k++) placeInstance(k); applyMode(); }, ropes.length > 0],
+    ["model", () => modelMode !== 2, () => { modelMode = (modelMode + 1) % 3; applyMode(); }, (sc.meta?.structures?.length || 0) > 0],
+    ["normals", () => normalsOn, () => { normalsOn = !normalsOn; applyMode(); }, true],
+  ];
+  for (const [name, get, set, show] of toggles) {
+    if (!show) continue;
+    const b = document.createElement("button"); b.textContent = name; b.className = "b-" + name;
+    b.addEventListener("click", () => { set(); syncBar(); });
+    bar.appendChild(b); barToggles[name] = b;
+  }
+  syncBar();
+}
+function syncBar() {
+  barButtons.forEach((b, i) => b.classList.toggle("on", i === currentScene));
+  const t = barToggles;
+  if (t.live) t.live.classList.toggle("on", !!api?.live?.wanted);
+  if (t.orbit) t.orbit.classList.toggle("on", controls.autoRotate);
+  if (t.sim) t.sim.classList.toggle("on", simOn);
+  if (t.glow) t.glow.classList.toggle("on", simOn && bloomOn);
+  if (t.ropes) t.ropes.classList.toggle("on", simOn && ropesOn);
+  if (t.model) t.model.classList.toggle("on", modelMode !== 2);
+  if (t.normals) t.normals.classList.toggle("on", normalsOn);
+  document.body.classList.toggle("live", !!api?.live?.wanted);
+}
+// pin a scene (index or name); picking one by hand is the way out of live mode, as on a stage
+async function pickScene(which, manual) {
+  if (manual && api?.live?.wanted && liveOnly()) liveDisconnect();
+  if (manual) { controls.autoRotate = false; autoBtn.classList.remove("on"); }
+  try { const r = await api.control({ scene: which }); if (r.error) console.warn("VOXELED_SCENE", r.error); else { currentScene = r.current; syncBar(); } } catch {}
+}
+setInterval(async () => { if (!api || !barButtons.length) return; try { const r = await api.control({}); if (typeof r.current === "number" && r.current !== currentScene) { currentScene = r.current; syncBar(); } } catch {} }, 1000);
+
+// live mode
+const liveOnly = () => (qs.has("live") ? qs.get("live") === "only" : barMode || embedMode);
+function liveConnect(url) {
+  if (api?.kind !== "local") return false;
+  $("l-url").value = url; $("p-ws").value = url;
+  try { localStorage.setItem("voxeled.ws", url); } catch {}
+  const ok = api.connectRemote(url, { only: liveOnly() });
+  if (ok) { $("l-go").textContent = "disconnect"; $("p-ws-go").textContent = "disconnect"; showControls(qsOn("controls", true)); }
+  syncBar(); renderLive(api.live);
+  return ok;
+}
+function liveDisconnect() { api?.disconnectRemote?.(); $("l-go").textContent = "connect"; $("p-ws-go").textContent = "connect"; $("livebanner").hidden = true; showControls(false); syncBar(); renderLive(api?.live); }
+$("l-go").addEventListener("click", () => { if (api?.live?.wanted) liveDisconnect(); else { const u = $("l-url").value.trim(); if (u) liveConnect(u); } });
+$("l-url").addEventListener("keydown", (e) => { if (e.key === "Enter") $("l-go").click(); });
+{ let saved = ""; try { saved = localStorage.getItem("voxeled.ws") || ""; } catch {} $("l-url").value = qs.get("ws") || saved || "ws://localhost:6480"; }
+// the indicator: green and lit while frames arrive, amber = open but silent, red = down, blue = asleep
+let lastLiveState = "";
+function renderLive(L) {
+  const hint = $("livehint"), dot = $("l-dot"), text = $("l-text"), banner = $("livebanner");
+  if (L && L.wanted && L.state !== lastLiveState) { lastLiveState = L.state; console.log("VOXELED_LIVE", L.state, L.url); }
+  if (L && !L.wanted && lastLiveState) { lastLiveState = ""; console.log("VOXELED_LIVE off"); }
+  if (!L || !L.wanted) { hint.className = ""; dot.className = "dot"; text.textContent = ""; banner.hidden = true; return; }
+  const age = Date.now() - L.lastFrameAt, receiving = L.lastFrameAt && age < 700;
+  const asleep = L.state === "asleep", down = !asleep && ["error", "closed", "connecting"].includes(L.state);
+  dot.className = "dot " + (receiving ? "data" : L.state);
+  hint.className = "live" + (!receiving && !down && !asleep ? " nodata" : "") + (down ? " down" : "");
+  text.textContent = receiving ? `live · ${L.fps} fps · ${L.url}` : asleep ? `live · asleep · press a button to wake` : down ? `live · ${L.state} · ${L.url}` : L.lastFrameAt ? `live · no frames for ${Math.floor(age / 1000)} s` : `live · connected · waiting for frames`;
+  banner.hidden = receiving || !liveOnly();
+  if (!banner.hidden) {
+    banner.classList.toggle("down", down); banner.classList.toggle("asleep", asleep);
+    $("l-title").textContent = asleep ? "asleep" : down ? "disconnected" : "no data";
+    $("l-detail").textContent = asleep ? "no button presses for a while, so the server went to sleep · press any button to wake it"
+      : down ? `${L.state} · ${L.url} · is the bridge running?` : !L.lastFrameAt ? `connected to ${L.url} · no frames yet · is the sender running?` : `connected to ${L.url} · last frame ${(age / 1000).toFixed(0)} s ago`;
+  }
+  if (receiving && ctlSleep && ctlSleep.limit - ctlSleep.idle <= 60) text.textContent = `live · sleeping in ${Math.max(0, ctlSleep.limit - ctlSleep.idle) | 0} s unless a button is pressed`;
+}
+setInterval(() => { if (api?.live?.wanted) renderLive(api.live); }, 250);
+
+// the piece's controls (layout `controls:`): button panels that speak JSON over the socket, and
+// the state the far end reports, shown next to them — Thread's pedestals + strand states
+let ctlKeys = {}, ctlButtons = {}, ctlStatus = null, ctlSleep = null;
+function buildControls(sc) {
+  const c = sc.meta?.controls, el = $("ctl"); el.innerHTML = ""; ctlKeys = {}; ctlButtons = {}; ctlStatus = null; ctlSleep = null;
+  if (!c || !c.panels?.length) { showControls(false); return; }
+  const panels = c.panels, status = c.status;
+  const mk = (p, pi) => {
+    const pan = document.createElement("div"); pan.className = "pan";
+    const keyOf = Object.fromEntries(Object.entries(p.keys || {}).map(([k, b]) => [b, k]));
+    const hint = Object.keys(p.keys || {}).length ? ` · keys ${Object.keys(p.keys).join(" ")}` : "";
+    pan.innerHTML = `<label>${esc(p.name)}${hint}</label><div class="keys"></div>`;
+    const keys = pan.querySelector(".keys");
+    for (const b of p.buttons) {
+      const btn = document.createElement("button"); btn.className = "key"; btn.innerHTML = `${esc(b.toUpperCase())}${keyOf[b] ? `<small>${esc(keyOf[b])}</small>` : ""}`;
+      btn.pressed = false; ctlButtons[`${pi}:${b}`] = { el: btn, panel: p, button: b };
+      btn.addEventListener("pointerdown", (e) => { e.preventDefault(); btn.setPointerCapture(e.pointerId); ctlPress(pi, b, true); });
+      const up = () => ctlPress(pi, b, false);
+      btn.addEventListener("pointerup", up); btn.addEventListener("pointercancel", up); btn.addEventListener("lostpointercapture", up);
+      keys.appendChild(btn);
+    }
+    for (const [k, b] of Object.entries(p.keys || {})) ctlKeys[k] = [pi, b];
+    return pan;
+  };
+  console.log("VOXELED_CONTROLS", panels.length, "panel(s)", panels.reduce((a, p) => a + p.buttons.length, 0), "button(s)");
+  panels.forEach((p, pi) => {
+    el.appendChild(mk(p, pi));
+    if (pi === 0 && status?.fields?.length) {
+      const st = document.createElement("div"); st.className = "st";
+      st.innerHTML = status.fields.map((f, i) => `<div><span>${esc(f.label)}</span><span class="off" data-f="${i}">–</span></div>`).join("");
+      el.appendChild(st); ctlStatus = { type: status.type, fields: status.fields, els: [...st.querySelectorAll("[data-f]")] };
+    }
+  });
+  showControls(!!api?.live?.wanted && qsOn("controls", true));
+}
+const esc = (x) => String(x).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));
+function showControls(on) { document.body.classList.toggle("ctl", on && Object.keys(ctlButtons).length > 0); }
+function ctlPress(pi, b, pressed) {
+  const st = ctlButtons[`${pi}:${b}`]; if (!st || st.el.pressed === pressed) return;
+  st.el.pressed = pressed; st.el.classList.toggle("down", pressed);
+  const fill = (v) => (v === "$button" ? b : v === "$pressed" ? pressed : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, fill(x)])) : v);
+  api?.send?.(fill(st.panel.message));
+}
+const pathGet = (o, p) => p.split(".").reduce((x, k) => (x == null ? undefined : x[k]), o);
+const showVal = (v) => (v == null ? "–" : typeof v === "object" ? (Array.isArray(v) ? v.join(" + ") : Object.entries(v).filter(([, x]) => x).map(([k]) => k.toUpperCase()).join(" + ") || "–") : String(v));
+function onRemoteMessage(m) {
+  if (!ctlStatus || m.type !== ctlStatus.type) return;
+  ctlStatus.fields.forEach((f, i) => { const v = pathGet(m, f.path); const el = ctlStatus.els[i]; el.textContent = showVal(v); el.className = v == null ? "off" : ""; });
+  console.log("VOXELED_CTL_STATUS", ctlStatus.fields.map((f, i) => `${f.label}=${ctlStatus.els[i].textContent}`).join(" · "));
+  ctlSleep = m.idle_sleep > 0 ? { idle: m.idle || 0, limit: m.idle_sleep } : null;
+}
+addEventListener("keydown", (e) => { if (e.repeat || ["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName) || !document.body.classList.contains("ctl")) return; const k = ctlKeys[e.key.toLowerCase()]; if (k) { ctlPress(k[0], k[1], true); e.preventDefault(); } });
+addEventListener("keyup", (e) => { const k = ctlKeys[e.key.toLowerCase()]; if (k) ctlPress(k[0], k[1], false); });
+addEventListener("blur", () => { for (const [key, st] of Object.entries(ctlButtons)) if (st.el.pressed) ctlPress(+key.split(":")[0], st.button, false); });
+// a host page (an iframe's parent) can drive the viewer: keys, a scene, a socket
+addEventListener("message", (e) => {
+  const m = e.data; if (!m || m.voxeled == null) return;
+  if (m.voxeled === "key" && m.key) { const k = ctlKeys[String(m.key).toLowerCase()]; if (k && document.body.classList.contains("ctl")) ctlPress(k[0], k[1], m.type !== "keyup"); }
+  else if (m.voxeled === "scene") pickScene(m.scene, true);
+  else if (m.voxeled === "connect") { if (m.url) liveConnect(m.url); else liveDisconnect(); }
+});
 
 // ── crossfade control → hub /control ─────────────────────────────────────────
 const slider = $("xf-slider"), autoBtn = $("xf-auto");
@@ -976,6 +1288,8 @@ addEventListener("keydown", (e) => {
   else if (k === "p" && staticMode) toggleProject();
   else if (buildOn && k === "t") setGizmoMode("translate");
   else if (buildOn && k === "r" && !$("b-rot").disabled) setGizmoMode("rotate");
+  else if (k === "r" && ropes.length) { ropesOn = !ropesOn; for (let i = 0; i < instTf.length; i++) placeInstance(i); applyMode(); }
+  else if (k === "o") { controls.autoRotate = !controls.autoRotate; syncBar(); }
   else if (buildOn && k === "escape") deselect();
   else if (buildOn && (k === "delete" || k === "backspace") && selected != null) $("b-del").click();
   else if (k === "[") { slider.value = Math.max(0, +slider.value - 0.05); goManual(); }
@@ -992,7 +1306,7 @@ function loop() {
 }
 loop();
 // debug / automation hook (also lets tests drive the builder without a mouse)
-window.voxeled = { select, deselect, liveTransform, commitTransform, scene3, get structures() { return structures; }, get instTf() { return instTf; }, get selected() { return selected; }, get scene() { return scene; } };
+window.voxeled = { select, deselect, liveTransform, commitTransform, pickScene, liveConnect, liveDisconnect, ctlPress, scene3, get ropes() { return ropes; }, get api() { return api; }, get structures() { return structures; }, get instTf() { return instTf; }, get selected() { return selected; }, get scene() { return scene; }, get currentScene() { return currentScene; } };
 boot().catch((e) => { $("h-name").textContent = "load error"; console.error("VOXELED_ERROR", e); });
 </script>
 </body>

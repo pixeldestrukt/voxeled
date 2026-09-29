@@ -107,6 +107,24 @@ merge: { mode: priority, fallback: show, timeoutMs: 1000 }
 
 Details and the wire behaviour: [interop/protocols.md](interop/protocols.md#inputs-and-merge--several-streams-driving-one-piece).
 
+## Controls — the piece's own buttons and the state it reports
+
+`meta.controls` (from the layout's `controls:`) describes a physical interface as data, so any
+viewer can draw it and any bus client can speak it — Thread's two pedestals:
+
+```json
+"controls": {
+  "panels": [{ "name": "pedestal A", "buttons": ["x", "y", "z"], "keys": { "q": "x", "w": "y", "e": "z" },
+               "message": { "type": "button", "podpi": "a", "button": "$button", "pressed": "$pressed" } }],
+  "status": { "type": "status", "fields": [{ "label": "strand X", "path": "states.x" }, { "label": "pedestals", "path": "podpi" }] }
+}
+```
+
+A press sends the panel's `message` as JSON text on the live socket with `$button` / `$pressed`
+filled in (`pressed: true` on press, `false` on release); the hub relays it to every other bus
+client. `status.type` names the JSON message that carries state back; each field's `path` is a
+dotted path into it. This is the wire format the luxpi bridge already speaks.
+
 ## Trackers — moving fixtures and things people carry
 
 ```yaml
@@ -177,6 +195,7 @@ instances:
 | `softness` | 0.4 | edge diffusion of the lit core (0 = hard chip, 1 = soft blob) |
 | `gain` | 1.6 | emissive intensity (HDR; > 1 feeds bloom) |
 | `glow` | 1.0 | bloom contribution (the diffusion halo) |
+| `diffuserMM` | — | the diameter of a diffuser the strand's LEDs sit inside (a 26 mm rope). When set, viewers draw each `strand` of the fixture as one lit tube through its LEDs (270° emission from the normal, the strip's shadow at the back) instead of per-LED bodies. `rope` fixtures set 26 by default. |
 
 One shader covers the whole range because only the numbers change: a laser, a spot, a bare SMD
 LED, a diffused strip, and a glowing rope are the same body with different `viewingAngleDeg` /

@@ -1,8 +1,12 @@
 // Export a layout to interchange files: a binary glTF (.glb, opens in Blender/TouchDesigner/etc.)
 // and the canonical resolved scene (.vxl.json). A snapshot frame is baked as vertex colours.
 //
-//   node examples/mobius-heart/export.mjs [layout.yaml] [out.glb]
+//   node examples/mobius-heart/export.mjs [layout.yaml] [out.glb] [--bare]
 //   make export LAYOUT=examples/mobius-heart/layouts/grid-3x3.yaml
+//
+// --bare writes a PUBLISHABLE .vxl.json: the pixels (with their strands) and the emitter only — no
+// structures (their file paths are yours), inputs, controls or show. A public layout next to it
+// places it with `type: vxl` and declares the rest (docs/STATIC.md, "Publish a piece").
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
@@ -18,7 +22,8 @@ import { saveScene } from "../../src/format.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, "../..");
 
-const layoutPath = path.resolve(process.argv[2] || path.join(HERE, "layouts/two-hearts.yaml"));
+const argv = process.argv.slice(2), bare = argv.includes("--bare"), args = argv.filter((a) => !a.startsWith("--"));
+const layoutPath = path.resolve(args[0] || path.join(HERE, "layouts/two-hearts.yaml"));
 const doc = parseYAML(readFileSync(layoutPath, "utf8"));
 const { scene, show } = resolveLayout(doc, { fixtures: FIXTURES, patterns: PATTERNS, baseDir: path.dirname(layoutPath) });
 
@@ -30,16 +35,20 @@ hub.renderOnce();
 
 const glb = sceneToGLB(scene, { colors: hub.frame });
 
-const outArg = process.argv[3];
+const outArg = args[1];
 const base = outArg
   ? outArg.replace(/\.glb$/i, "")
   : path.join(ROOT, "build", path.basename(layoutPath, path.extname(layoutPath)));
 mkdirSync(path.dirname(base + ".glb"), { recursive: true });
 writeFileSync(base + ".glb", glb);
-saveScene(base + ".vxl.json", scene);
+if (bare) {
+  const em = scene.meta.instances[0]?.emitter;
+  const pixels = scene.pixels.map(({ i, p, n, s, v, inst, strand }) => ({ i, p, n, s, v, ...(inst ? { inst } : {}), ...(strand != null ? { strand } : {}) }));
+  saveScene(base + ".vxl.json", { name: scene.name, units: scene.units, count: pixels.length, pixels, meta: { source: "voxeled export --bare", pitchMM: scene.meta.pitchMM, points: pixels.length, ...(em ? { emitter: em } : {}) } });
+} else saveScene(base + ".vxl.json", scene);
 
 const rel = (p) => path.relative(process.cwd(), p);
 console.log(`✓ exported "${scene.name}"`);
 console.log(`  ${scene.meta.instances.length} instance(s) · ${scene.count.toLocaleString()} points`);
 console.log(`  ${rel(base + ".glb")}  (${(glb.length / 1024).toFixed(0)} KB, glTF 2.0, POINTS + NORMAL + COLOR_0, metres)`);
-console.log(`  ${rel(base + ".vxl.json")}  (canonical voxeled scene)`);
+console.log(`  ${rel(base + ".vxl.json")}  (${bare ? "bare: pixels + emitter, publishable" : "canonical voxeled scene"})`);

@@ -2,7 +2,8 @@
 // scene, patterns + show mixer, sources merge) run here in the browser: files come from a
 // memory VFS (dropped in, fetched from a hosted project, or restored from IndexedDB), frames go
 // straight to the page, and the builder edits the layout exactly as it does through /layout.
-// A remote LAN hub can still feed live frames over a WebSocket (`?ws=`), merged over the show.
+// A remote LAN hub or bridge can still feed live frames over a WebSocket (`?ws=`), merged over
+// the show (or replacing it: live-only), with JSON status in and JSON control (buttons) out.
 import { parseYAML } from "../src/yaml.mjs";
 import { stringifyYAML, yamlHeader } from "../src/yaml-emit.mjs";
 import { resolveLayout, collectFiles } from "../src/layout.mjs";
@@ -19,7 +20,7 @@ export { FIXTURES, PATTERNS, parseYAML, stringifyYAML, collectFiles, memoryVFS, 
 
 // project: { name, layout (YAML text), layoutDir ("layouts" — what relative paths in it are
 // relative to), files: Map<name, Uint8Array> }
-export function createLocalHub({ project, onFrame, onScene, fps = 30 } = {}) {
+export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 } = {}) {
   const control = { mode: "auto", fader: 0, a: 0, b: 1 };
   const vfs = memoryVFS(project.files || new Map(), { baseDir: project.layoutDir || "" });
   const state = { doc: null, header: "", scene: null, show: null, hub: null, sources: null, remote: null };
@@ -37,15 +38,72 @@ export function createLocalHub({ project, onFrame, onScene, fps = 30 } = {}) {
 
   function apply(doc, { announce = true } = {}) {
     const { scene, show, shade } = build(doc); // throws → nothing changes
+    const t0 = state.hub?.t0 ?? null; // the show clock runs on across layout edits
     state.hub?.stop();
     state.doc = doc; state.scene = scene; state.show = show;
     // the only input in a page is the remote hub (if any): priority 100 over the show
-    state.sources = createSources({ N: scene.count, mode: scene.meta.merge?.mode || "priority", fallback: scene.meta.merge?.fallback || "show", timeoutMs: scene.meta.merge?.timeoutMs ?? 1000 });
+    state.fallback = scene.meta.merge?.fallback || "show";
+    state.sources = createSources({ N: scene.count, mode: scene.meta.merge?.mode || "priority", fallback: state.fallback, timeoutMs: scene.meta.merge?.timeoutMs ?? 1000 });
+    if (live.wanted && live.only) state.sources.setFallback("black");
     state.remoteSrc = state.sources.add("remote", { priority: 100 });
     state.remoteMap = buildInputMap((scene.meta.inputs || []).find((i) => i.protocol === "ws")?.map || {}, scene.count);
-    state.hub = createHub({ scene, shade, fps, bus: { broadcast: (rgb) => onFrame?.(rgb) }, senders: [], sources: state.sources });
+    state.hub = createHub({ scene, shade, fps, bus: { broadcast: (rgb) => onFrame?.(rgb) }, senders: [], sources: state.sources, t0 });
     state.hub.start();
     if (announce) onScene?.(scene);
+  }
+  const nowT = () => (state.hub ? (Date.now() - state.hub.t0) / 1000 : 0);
+
+  // ── live: a remote hub / bridge over a WebSocket ───────────────────────────────────────
+  // States: off → connecting → open (no frames yet) → data; closed / error → reconnect every 2 s;
+  // asleep (the server closed with 4000: idle, it will wake on a control press) → no reconnect
+  // until something is sent. `only`: while a socket is wanted, pixels nobody drives go BLACK,
+  // not to the show — a dark piece means the sender is silent, not the page.
+  const live = { ws: null, url: "", wanted: false, only: false, state: "off", frames: 0, fps: 0, lastFrameAt: 0, timer: 0, queued: [], listeners: new Set() };
+  const emit = () => { for (const f of live.listeners) { try { f(api.live); } catch {} } };
+  setInterval(() => { live.fps = live.frames; live.frames = 0; if (live.wanted && live.state === "data" && Date.now() - live.lastFrameAt > 1000) { live.state = "open"; emit(); } else if (live.wanted) emit(); }, 1000);
+  function setState(st) { live.state = st; emit(); }
+  function connect(url) {
+    disconnect(true);
+    live.wanted = true; live.url = url; live.lastFrameAt = 0;
+    if (live.only) state.sources.setFallback("black");
+    let ws;
+    try { ws = new WebSocket(url); } catch (e) { setState("error"); return false; }
+    ws.binaryType = "arraybuffer"; live.ws = ws; setState("connecting");
+    ws.onopen = () => { if (live.ws !== ws) return; setState("open"); for (const m of live.queued) ws.send(m); live.queued = []; };
+    ws.onmessage = (ev) => {
+      if (live.ws !== ws) return;
+      if (typeof ev.data === "string") { let m; try { m = JSON.parse(ev.data); } catch { return; } if (m && typeof m === "object") onMessage?.(m); return; }
+      const b = new Uint8Array(ev.data);
+      if (b.length >= 12 && isArtNet(b)) { for (const p of eachArtNet(b)) if (p.op === OP_DMX) state.remoteSrc.writeUniverse(state.remoteMap, p.universe, p.data); }
+      else state.remoteSrc.writeFrame(b);
+      live.frames++; live.lastFrameAt = Date.now();
+      if (live.state !== "data") setState("data");
+    };
+    ws.onerror = () => { if (live.ws === ws) setState("error"); };
+    ws.onclose = (ev) => {
+      if (live.ws !== ws) return;
+      live.ws = null;
+      if (!live.wanted) return;
+      if (ev.code === 4000) { setState("asleep"); return; }       // the server chose to sleep: a press wakes it
+      setState("closed"); live.timer = setTimeout(() => live.wanted && connect(url), 2000);
+    };
+    return true;
+  }
+  function disconnect(silent = false) {
+    clearTimeout(live.timer); live.wanted = false; live.queued = [];
+    const w = live.ws; live.ws = null; try { w?.close(); } catch {}
+    state.sources?.setFallback(state.fallback || "show");
+    if (!silent) setState("off");
+  }
+  // JSON to the remote (a pedestal press, a control message). Asleep or between reconnects, the
+  // message is queued and the reconnect is what wakes the server.
+  function send(obj) {
+    const text = typeof obj === "string" ? obj : JSON.stringify(obj);
+    if (live.ws && live.ws.readyState === WebSocket.OPEN) { live.ws.send(text); return true; }
+    if (!live.wanted) return false;
+    live.queued.push(text);
+    if (!live.ws && (live.state === "asleep" || live.state === "closed")) connect(live.url);
+    return true;
   }
 
   const text = project.layout || "";
@@ -61,11 +119,12 @@ export function createLocalHub({ project, onFrame, onScene, fps = 30 } = {}) {
     getScene: async () => state.scene,
     control: async (params) => {
       const p = params instanceof URLSearchParams ? Object.fromEntries(params) : params || {};
-      if (p.mode != null) control.mode = p.mode === "manual" ? "manual" : "auto";
+      if (p.scene != null) { const k = /^\d+$/.test(String(p.scene)) ? +p.scene : String(p.scene); try { state.show.pin(k, nowT()); } catch (e) { return { error: e.message, ...control, current: state.show.current(nowT()) }; } }
+      else if (p.mode != null) control.mode = p.mode === "manual" ? "manual" : "auto";
       if (p.fader != null) control.fader = Math.max(0, Math.min(1, +p.fader));
       if (p.a != null) control.a = +p.a;
       if (p.b != null) control.b = +p.b;
-      return { ...control };
+      return { ...control, current: state.show.current(nowT()), scenes: state.show.names };
     },
     getLayout: async () => ({
       path: joinPath(project.layoutDir || "", project.layoutName || "layout.yaml"), doc: state.doc, fixtures: Object.keys(FIXTURES), patterns: Object.keys(PATTERNS),
@@ -78,28 +137,19 @@ export function createLocalHub({ project, onFrame, onScene, fps = 30 } = {}) {
       if (write) { project.layout = stringifyYAML(doc, { header: state.header }); written = true; await project.onSave?.(project); }
       return { ok: true, written, count: state.scene.count, instances: state.scene.meta.instances.length };
     },
-    inputs: async () => ({ mode: state.sources.mode, fallback: state.sources.fallback, inputs: state.remote ? [{ name: "remote", protocol: "ws", priority: 100, ...state.sources.status()[0] }] : [] }),
-    // live frames from a LAN hub: raw RGB frames or Art-Net packets over its /bus
-    connectRemote(url) {
-      api.disconnectRemote();
-      let ws;
-      try { ws = new WebSocket(url); } catch (e) { return false; }
-      ws.binaryType = "arraybuffer";
-      ws.onmessage = (ev) => {
-        if (typeof ev.data === "string") return;
-        const b = new Uint8Array(ev.data);
-        if (isArtNet(b)) { for (const p of eachArtNet(b)) if (p.op === OP_DMX) state.remoteSrc.writeUniverse(state.remoteMap, p.universe, p.data); }
-        else state.remoteSrc.writeFrame(b);
-      };
-      ws.onclose = () => { if (state.remote === ws) { state.remote = null; setTimeout(() => api.connectRemote(url), 2000); } };
-      state.remote = ws;
-      return true;
-    },
-    disconnectRemote() { const w = state.remote; state.remote = null; try { w?.close(); } catch {} },
-    get remoteLive() { return !!state.remote && state.remoteSrc?.live; },
+    inputs: async () => ({ mode: state.sources.mode, fallback: state.sources.fallback, inputs: live.wanted ? [{ name: "remote", protocol: "ws", priority: 100, ...state.sources.status()[0] }] : [] }),
+    // live frames from a LAN hub / bridge: raw RGB frames or Art-Net packets over its socket, JSON
+    // status in (onMessage), JSON out (send). `only`: black where nothing arrives, instead of the show.
+    connectRemote(url, { only = false } = {}) { live.only = only; return connect(url); },
+    disconnectRemote() { disconnect(); },
+    send,
+    onLive(f) { live.listeners.add(f); return () => live.listeners.delete(f); },
+    get live() { return { wanted: live.wanted, url: live.url, state: live.state, fps: live.fps, lastFrameAt: live.lastFrameAt, receiving: live.wanted && Date.now() - live.lastFrameAt < 700, queued: live.queued.length }; },
+    get remoteLive() { return live.wanted && state.remoteSrc?.live; },
+    get t() { return nowT(); },
     files: () => vfs.list(),
     addFile: (name, bytes) => { vfs.put(name, bytes); project.files?.set?.(name, bytes); },
-    stop: () => { state.hub?.stop(); api.disconnectRemote(); },
+    stop: () => { state.hub?.stop(); disconnect(true); },
   };
   return api;
 }

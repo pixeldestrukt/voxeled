@@ -90,7 +90,7 @@ function apply(doc, { announce = true } = {}) {
   if (sameInputs) state.inputs.rescene(scene);
   else {
     state.inputs?.close();
-    state.inputs = inputSpecs.length ? createInputs({ specs: inputSpecs, merge: scene.meta.merge, scene, bus, onControl: (m) => { for (const k of ["mode", "fader", "a", "b"]) if (m[k] != null) applyControl(k, String(m[k])); } }) : null;
+    state.inputs = inputSpecs.length ? createInputs({ specs: inputSpecs, merge: scene.meta.merge, scene, bus, onControl: (m) => { for (const k of ["scene", "mode", "fader", "a", "b"]) if (m[k] != null) { try { applyControl(k, String(m[k])); } catch (e) { console.warn(`control: ${e.message}`); } } } }) : null;
     state.inputMerge = scene.meta.merge;
   }
   scene.meta.inputs = inputSpecs;
@@ -231,16 +231,19 @@ function handlePoseText(text) {
   try { onPose(pose.id, pose, "ws"); } catch (e) { console.warn(`pose ${pose.id}: ${e.message}`); }
   return true;
 }
+const showT = () => (state.hub ? (Date.now() - state.hub.t0) / 1000 : 0);
 function applyControl(k, v) {
-  if (k === "mode") control.mode = v === "manual" ? "manual" : "auto";
+  if (k === "scene") state.show.pin(/^\d+$/.test(String(v)) ? +v : String(v), showT()); // a page's pattern bar: pin one scene (throws on an unknown one)
+  else if (k === "mode") control.mode = v === "manual" ? "manual" : "auto";
   else if (k === "fader") control.fader = Math.max(0, Math.min(1, +v));
   else if (k === "a") control.a = +v;
   else if (k === "b") control.b = +v;
 }
 function controlHandler(req, res, params) {
-  for (const k of ["mode", "fader", "a", "b"]) if (params.has(k)) applyControl(k, params.get(k));
-  res.writeHead(200, { "Content-Type": "application/json" });
-  res.end(JSON.stringify(control));
+  let error = null;
+  for (const k of ["scene", "mode", "fader", "a", "b"]) if (params.has(k)) { try { applyControl(k, params.get(k)); } catch (e) { error = e.message; } }
+  res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+  res.end(JSON.stringify({ ...control, ...(error ? { error } : {}), current: state.show.current(showT()), scenes: state.show.names }));
 }
 
 // Builder endpoint. GET → the layout doc (+ what fixtures/patterns exist, and the expanded

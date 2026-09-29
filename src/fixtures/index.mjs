@@ -60,6 +60,14 @@ export const FIXTURES = {
       const Rp = eulerMatrix(parent.rotDeg || [0, 0, 0]), Ro = eulerMatrix(own.rotDeg || [0, 0, 0]);
       return { ...own, pos: add(matVec(Rp, own.pos || [0, 0, 0]), parent.pos || [0, 0, 0]), rotDeg: matToEulerDeg(matMul(Rp, Ro)) };
     });
-    return withEmitter({ pixels: fx.pixels, meta: { ...(fx.meta || {}), instances: undefined, structures } }, params.emitter || fx.meta?.emitter || BARE_LED);
+    // A baked SCENE (several instances) becomes one fixture: its strands stay distinct — rope 0 of
+    // tube 1 is not rope 0 of tube 2 — so renumber (inst, strand) pairs as one global ordinal.
+    let pixels = fx.pixels;
+    if (pixels.some((p) => p.inst)) {
+      const ords = new Map();
+      pixels = pixels.map((p) => { const key = `${p.inst || 0}:${p.strand || 0}`; if (!ords.has(key)) ords.set(key, ords.size); const { inst, ...rest } = p; return { ...rest, strand: ords.get(key) }; });
+    }
+    const emitter = params.emitter || fx.meta?.emitter || (fx.meta?.instances?.[0]?.emitter) || BARE_LED;
+    return withEmitter({ pixels, meta: { ...(fx.meta || {}), instances: undefined, structures } }, emitter);
   },
 };

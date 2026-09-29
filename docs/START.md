@@ -154,6 +154,8 @@ show:
 | `lantern` | a lamp carried through the room lights the sides facing it | normals |
 | `swirl` | spiral arms over the floor about the installation's centre | world angle |
 | `drops` | drops falling down one side of each column | s, v |
+| `comet`, `plasma`, `fire`, `strands` | per **strand** — a comet down each rope, plasma along it, fire climbing from LED 0, one colour per strand/group (Thread's looks) | strand, s |
+| `solid` | one colour everywhere | — |
 | `normalRGB` | colours each LED by its normal — the map made visible | normals |
 | `spotlight`, `projector` | only what a virtual camera can see; project a texture through it | visibility |
 
@@ -210,6 +212,10 @@ the wiring.
   `https` page needs `wss://`).
 - **Your own copy** — fork the repo, enable Pages → *GitHub Actions*, and your patterns and
   fixtures deploy on every push ([STATIC.md](STATIC.md)).
+- **On your own site** — `node scripts/vendor.mjs <site>/voxeled` drops the viewer into any static
+  site; embed it with `<iframe src="/voxeled/viewer/?project=/piece/piece.yaml&ui=bar&sim=1">`.
+  `?ui=bar` is the public face: a pattern bar, the view toggles, live mode with its indicator, and
+  the piece's own buttons if the layout declares `controls:` ([GUIDE §13.1](GUIDE.md#131-the-public-face-uibar-embedding)).
 
 ## 8. Troubleshooting
 

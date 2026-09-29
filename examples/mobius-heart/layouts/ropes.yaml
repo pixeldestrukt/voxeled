@@ -2,7 +2,10 @@
 # tube, the way the Thread sculpture is built. The tube is a named PATH; each rope is a `rope`
 # fixture that follows it, offset by the rope radius and wrapped at its own angle around the tube
 # (Thread's three ropes sit at 60°, 180°, 300°). The emission normal of every LED is radial —
-# away from the tube — so the simulator (S) shows each rope lit from its own side.
+# away from the tube — so the simulator (S) shows each rope lit from its own side, and each rope is
+# drawn as a 26 mm diffused tube (R toggles). The show is Thread's: per-strand patterns. The piece
+# also has CONTROLS — two button panels that speak JSON to whatever is on the live socket, and the
+# state it reports back (viewer/?example=ropes&ui=bar&sim=1 shows the public face).
 #   run with:  node examples/mobius-heart/run.mjs examples/mobius-heart/layouts/ropes.yaml
 # For the real Thread: paths from thread-3d's tubes.json —
 #   paths: { tube-1: { file: ../../../thread-3d/model/out/tubes.json, index: 0, scaleToMM: 1000 } }
@@ -23,10 +26,27 @@ instances:
   - { fixture: rope-back,  name: back }
   - { fixture: rope-front, name: front }
 
+# a page's live socket: raw RGB frames or Art-Net (170 px per universe from 0) + control JSON
+inputs:
+  - { name: web, protocol: ws, priority: 100, timeoutMs: 800 }
+
+# the piece's buttons — a press is {"type":"button","podpi":"a","button":"x","pressed":true} to
+# whoever is on the socket; a {"type":"status"} message back fills the fields
+controls:
+  panels:
+    - { name: pedestal A, buttons: [x, y, z], keys: { q: x, w: y, e: z }, message: { type: button, podpi: a, button: $button, pressed: $pressed } }
+    - { name: pedestal B, buttons: [x, y, z], keys: { i: x, o: y, p: z }, message: { type: button, podpi: b, button: $button, pressed: $pressed } }
+  status:
+    type: status
+    fields: [{ label: strand X, path: states.x }, { label: strand Y, path: states.y }, { label: strand Z, path: states.z }, { label: pedestals, path: podpi }]
+
 show:
-  holdS: 4
+  holdS: 6
   fadeS: 2
   scenes:
-    - { name: chase along the tube,    pattern: ribbonChase, params: { loops: 2 } }
-    - { name: wipe along X (world),    pattern: worldWipe, params: { axis: 0, space: world, speedMM: 900, spacingMM: 2400 } }
-    - { name: normals (radial),        pattern: normalRGB }
+    - { name: plasma,   pattern: plasma }
+    - { name: fire,     pattern: fire }
+    - { name: comet,    pattern: comet, params: { speed: 0.15, tail: 0.15 } }
+    - { name: strands,  pattern: strands }
+    - { name: chase,    pattern: ribbonChase, params: { loops: 2 } }
+    - { name: normals,  pattern: normalRGB }

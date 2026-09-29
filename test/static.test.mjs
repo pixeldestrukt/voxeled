@@ -14,6 +14,7 @@ import { resolveLayout, collectFiles } from "../src/layout.mjs";
 import { parseYAML } from "../src/yaml.mjs";
 import { FIXTURES } from "../src/fixtures/index.mjs";
 import { PATTERNS } from "../src/patterns.mjs";
+import { createBus } from "../src/bus.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 let pass = 0, fail = 0;
@@ -92,6 +93,21 @@ else {
   // 3. builder against the in-page hub; a save lands in IndexedDB and is reopened on the next visit
   log = await run("example=columns&build=1&select=0", "static-build");
   ok(log.includes("VOXELED_BUILDER_READY 8"), "builder ready against the in-page hub (8 layout entries)");
+  // 4. the public face: ?ui=bar on the ropes example — ropes drawn as diffused tubes, the pattern bar
+  //    pins a scene, the piece's controls are drawn, and LIVE mode round-trips against a real bus:
+  //    frames in (raw RGB), a status JSON in → the controls' fields; a bare socket = "only what arrives"
+  const bus = createBus({ port: 0 });
+  await new Promise((r) => bus.server.once("listening", r));
+  const busPort = bus.server.address().port, N = 591; // the ropes example: 3 × 197 px
+  const frame = new Uint8Array(N * 3); for (let i = 0; i < N; i++) { frame[i * 3] = 255; frame[i * 3 + 1] = 40; }
+  const pump = setInterval(() => { bus.broadcast(frame); if (bus.clients.size) bus.broadcastText({ type: "status", states: { x: "idle", y: "connected", z: null }, podpi: { a: true, b: false } }); }, 100);
+  log = await run(`example=ropes&ui=bar&sim=1&scene=comet&ws=ws://localhost:${busPort}/bus`, "static-bar");
+  clearInterval(pump); bus.close();
+  ok(/VOXELED_ROPES_READY 3 fixture\(s\) 3 rope\(s\)/.test(log), "ropes example: three rope fixtures drawn as three diffused tubes");
+  ok(/VOXELED_CONTROLS 2 panel\(s\) 6 button\(s\)/.test(log), "controls: two pedestal panels, six buttons, from the layout");
+  ok(log.includes("VOXELED_LIVE connecting") && log.includes("VOXELED_LIVE data"), "live: ?ws= connected to a real bus and received frames");
+  ok(/VOXELED_CTL_STATUS strand X=idle · strand Y=connected · strand Z=– · pedestals=A/.test(log), "a status JSON on the socket fills the controls' fields (paths into the message; objects → the truthy keys)");
+  ok(!log.includes("VOXELED_ERROR") && !/Uncaught/.test(log), "no page errors in bar mode");
   server.close();
 }
 

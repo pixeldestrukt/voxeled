@@ -9,8 +9,8 @@
 // Pixels no live source covers fall back to `fallback`: the internal show (default), black, or
 // hold (keep the last output). A source goes silent after `timeoutMs` without data, so a sender
 // that dies hands its pixels back — that is the failover.
-export function createSources({ N: N0, mode = "priority", fallback = "show", timeoutMs = 1000 } = {}) {
-  let N = N0;
+export function createSources({ N: N0, mode = "priority", fallback: fallback0 = "show", timeoutMs = 1000 } = {}) {
+  let N = N0, fallback = fallback0;
   if (!["priority", "htp", "ltp"].includes(mode)) throw new Error(`merge mode must be priority | htp | ltp (got "${mode}")`);
   if (!["show", "black", "hold"].includes(fallback)) throw new Error(`merge fallback must be show | black | hold (got "${fallback}")`);
   const list = [];
@@ -100,8 +100,11 @@ export function createSources({ N: N0, mode = "priority", fallback = "show", tim
     N = n;
   }
 
+  // A page in "live only" mode wants black, not the show, wherever nothing arrives: switch it live.
+  function setFallback(f) { if (!["show", "black", "hold"].includes(f)) throw new Error(`fallback must be show | black | hold`); fallback = f; }
   return {
-    add, compose, list, mode, fallback, resize,
+    add, compose, list, mode, resize, setFallback,
+    get fallback() { return fallback; },
     get N() { return N; },
     get(name) { return list.find((s) => s.name === name); },
     status() { return list.map((s) => ({ name: s.name, priority: s.priority, live: s.live, rate: s.rate, writes: s.writes, lastAt: s.lastAt })); },

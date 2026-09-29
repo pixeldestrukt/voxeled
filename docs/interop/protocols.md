@@ -95,7 +95,7 @@ layout's (`groups.order`), plus `flip`. Wrong guesses become one-line edits inst
 
 The hub answers **ArtPoll** (so consoles and senders discover it as a node) and joins sACN
 multicast. The **bus** is also an input: a WebSocket client may send binary messages — a raw RGB
-frame in scene order, or Art-Net packets (a relay page) — and JSON text: `{ "type": "control",
+frame in scene order, or Art-Net packets (a relay page) — and JSON text: `{ "type": "control", "scene": "plasma" }` pins a scene, `{ "type": "control",
 fader, mode, a, b }` drives the crossfader; any other JSON (a game's pedestal buttons, state) is
 relayed to every other client, so the bus is the room the pages share. `/inputs` reports each
 source's liveness and rate; the viewer's HUD shows it.

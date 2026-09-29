@@ -21,6 +21,7 @@ LAN hub's job (`node examples/mobius-heart/run.mjs layout.yaml`), which the page
 | `viewer/?example=site` | an example layout fetched next to the page: `columns`, `two-hearts`, `site`, `ropes`, `grid-3x3`, `facing-hearts`, `imported`, `patched` |
 | `viewer/?project=https://…/thread.yaml` | a hosted project: the layout and the files it names (`collectFiles`), fetched relative to it |
 | `viewer/?ws=ws://192.168.1.20:8080/bus` | live frames from a LAN hub (raw RGB or Art-Net over the socket) merged over the show |
+| `viewer/?project=…&ui=bar&sim=1` | the **public face**: a pattern bar + view toggles, live mode, the piece's controls ([GUIDE §13.1](GUIDE.md#131-the-public-face-uibar-embedding)); `?embed=1` a bare tile |
 | `viewer/` on a plain host | no `scene.json` → static mode automatically |
 
 **P** (or the *project* button) opens the project panel: projects saved in this browser + the
@@ -32,25 +33,41 @@ works exactly as against a hub — 💾 saves to IndexedDB instead of a file.
 
 ## Publish a piece (Thread)
 
-Bake what's public and put it next to the page:
+This is how dnuke.art/thread runs. Bake what's public — the pixels, with their normals, strands
+and emitter, nothing else — from the private layout:
 
 ```bash
-node examples/mobius-heart/export.mjs ../thread-3d/voxeled/thread.yaml site/thread/thread    # → thread.vxl.json (+ .glb)
+node examples/mobius-heart/export.mjs ../thread-3d/voxeled/thread.yaml dnuke.art/thread/thread.glb --bare   # → thread.vxl.json
 ```
-then a layout beside it that places the baked piece and its (decimated) structure:
+then a **public layout** beside it that places the baked piece, its (decimated) structure, and
+everything the page needs — the live socket's wiring map, the pedestals, the show:
 ```yaml
-# site/thread/thread.yaml
+# dnuke.art/thread/thread.yaml
 name: thread
 fixtures:
-  thread: { type: vxl, params: { file: thread.vxl.json } }
+  thread:
+    type: vxl
+    params: { file: thread.vxl.json }
+    structures: [{ file: thread-structure.glb, scaleToMM: 1000, rotDeg: [-90, 0, 0], color: "#55575c" }]
 instances:
   - { fixture: thread, name: thread }
-inputs:
-  - { name: web, protocol: ws, priority: 100 }          # the page's ?ws= hub feed
-show: { scenes: [{ name: chase, pattern: ribbonChase }, { name: helix, pattern: helix }] }
+inputs:                                                   # the luxpi bridge over a WebSocket
+  - { name: bridge, protocol: ws, priority: 100, timeoutMs: 800,
+      map: { strings: 12, universesPerString: 4, perUniverse: 150, stripB: luxpi, groups: { size: 3 } } }
+controls:                                                 # the two pedestals (GUIDE §3.6)
+  panels: [{ name: pedestal A, buttons: [x, y, z], keys: { q: x, w: y, e: z }, message: { type: button, podpi: a, button: $button, pressed: $pressed } }, …]
+  status: { type: status, fields: [{ label: strand X, path: states.x }, …] }
+show: { holdS: 14, fadeS: 1.5, scenes: [{ name: plasma, pattern: plasma }, { name: fire, pattern: fire }, { name: comet, pattern: comet }, …] }
 ```
-and link `viewer/?project=thread/thread.yaml&ws=wss://…`. The rope layout and the full model stay
-private in thread-3d; the page only ever sees the baked pixels + the published structure.
+Vendor the viewer into the site (`node scripts/vendor.mjs dnuke.art/voxeled`) and the piece's page
+embeds it, keeping its own title, credits and text:
+```html
+<iframe src="/voxeled/viewer/?project=/thread/thread.yaml&ui=bar&sim=1&zoom=1.4"></iframe>
+```
+`?ws=wss://…` on the page is passed through to the iframe; keys are forwarded with `postMessage`
+(GUIDE §13.1). The rope layout and the full model stay private in thread-3d; the page only ever
+sees the baked pixels + the published structure — and the same `viewer/?project=` URL works from
+this repo's Pages site if the host sends CORS headers.
 
 ## Hosting
 

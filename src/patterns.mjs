@@ -212,4 +212,77 @@ export function paint({ from, radiusMM = 500, decayS = 6, hue = 0.85, hueDrift =
   };
 }
 
-export const PATTERNS = { ribbonChase, worldWipe, planeSweep, normalRGB, spotlight, projector, helix, lantern, swirl, drops, point, paint };
+// ── strand patterns: the piece as a bundle of strings ───────────────────────────────────
+// A rope, a rolled panel, a baked Thread carry `strand` on every pixel (which rope / panel of its
+// fixture) and `s` (0→1 along it). These patterns are per-strand — a comet down each rope, fire
+// climbing each string — modelled on the luxpi animations the Thread page ran. The strand table
+// (global strand ordinal, count, index along) is computed once per scene and cached on ctx.
+function strandTable(ctx) {
+  if (ctx._strands) return ctx._strands;
+  const px = ctx.scene.pixels, N = px.length;
+  const ord = new Int32Array(N), idx = new Int32Array(N), keys = new Map(), counts = [];
+  for (let i = 0; i < N; i++) {
+    const key = (px[i].inst || 0) * 1048576 + (px[i].strand || 0);
+    let k = keys.get(key);
+    if (k == null) { k = counts.length; keys.set(key, k); counts.push(0); }
+    ord[i] = k; idx[i] = counts[k]++;
+  }
+  return (ctx._strands = { ord, idx, counts, S: counts.length });
+}
+
+// A comet running back and forth down every strand, each at its own pace, with a fading tail.
+//   speed  strand-lengths per second · tail  fraction of the strand the tail covers
+export function comet({ speed = 0.1, tail = 0.12, hue = 0.55, hueStep = 0.045, ambient = 0.04, sat = 0.9 } = {}) {
+  return (px, t, ctx) => {
+    const T = strandTable(ctx), k = T.ord[px.i], n = T.counts[k];
+    const ph = ((k * 0.37) % 1 + t * speed * (1 + 0.3 * ((k * 7) % 5) / 4)) % 2, fwd = ph < 1;
+    const head = fwd ? ph : 2 - ph, s = n > 1 ? T.idx[px.i] / (n - 1) : 0;
+    const behind = fwd ? head - s : s - head;
+    const a = ambient + (behind >= 0 ? Math.exp(-behind / tail) : Math.exp(behind * 900));
+    return hsv((hue + k * hueStep) % 1, sat, clamp01(a));
+  };
+}
+
+// Plasma: layered sine fields along each strand, staggered per strand, hue drifting with time.
+export function plasma({ speed = 1, scale = 1, hueDrift = 0.03, sat = 1 } = {}) {
+  return (px, t, ctx) => {
+    const T = strandTable(ctx), k = T.ord[px.i], n = T.counts[k], x = (n > 1 ? T.idx[px.i] / n : 0) * scale, stag = k / T.S;
+    const w = 0.5 + 0.5 * (Math.sin(x * 9 + t * 0.55 * speed + stag * 6.28) * 0.5 + Math.sin(x * 23 - t * 0.9 * speed + k * 0.7) * 0.3 + Math.sin((x + stag) * 4 + t * 0.3 * speed) * 0.2);
+    return hsv((w + t * hueDrift + stag * 0.15) % 1, sat, 0.5 + 0.5 * w);
+  };
+}
+
+// Fire climbing every strand from its start: heat is injected at LED 0 and shifted up the
+// strand `rate` steps a second, cooling as it goes; colour is the black-body ramp. Stateful
+// (a heat buffer per strand), stepped once per hub frame — the same on every pixel of a frame.
+export function fire({ rate = 90, cooling = 0.012, seed = 0.35 } = {}) {
+  let heat = null, acc = 0, lastT = null, lastFrame = -1;
+  return (px, t, ctx) => {
+    const T = strandTable(ctx);
+    if (!heat || heat.length !== T.S) { heat = T.counts.map((n) => new Float32Array(n)); lastT = t; }
+    if (ctx.frame !== lastFrame) { // advance the simulation once per frame
+      lastFrame = ctx.frame;
+      acc += Math.max(0, Math.min(0.1, t - lastT)); lastT = t;
+      const steps = Math.min(4, Math.floor(acc * rate));
+      if (steps > 0) acc -= steps / rate;
+      for (let st = 0; st < steps; st++) for (const h of heat) { for (let i = h.length - 1; i > 0; i--) h[i] = Math.max(0, h[i - 1] - Math.random() * cooling); h[0] = seed + Math.random() * (1 - seed); }
+    }
+    const k = T.ord[px.i], n = T.counts[k], i = T.idx[px.i];
+    const h = heat[k][i] * (1 - i / n);
+    return [clamp01(h), clamp01(h * h * 0.55), clamp01(h * h * h * 0.12)];
+  };
+}
+
+// One flat colour per strand (or per group of `group` strands — Thread's three ropes per tube),
+// so the wiring reads at a glance: which string is which.
+export function strands({ group = 1, sat = 0.85, value = 1, hueStep = 0.25, hue = 0.05 } = {}) {
+  return (px, t, ctx) => { const k = strandTable(ctx).ord[px.i]; return hsv((Math.floor(k / group) * hueStep + hue) % 1, sat, value); };
+}
+
+// A solid colour on everything — white for a look at the piece, a fill behind a live source.
+export function solid({ rgb = null, hue = 0, sat = 0, value = 0.85 } = {}) {
+  const c = rgb ? rgb.map(clamp01) : hsv(hue, sat, value);
+  return () => c;
+}
+
+export const PATTERNS = { ribbonChase, worldWipe, planeSweep, normalRGB, spotlight, projector, helix, lantern, swirl, drops, point, paint, comet, plasma, fire, strands, solid };

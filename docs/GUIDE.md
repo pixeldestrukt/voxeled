@@ -152,10 +152,43 @@ See [interop/protocols.md](interop/protocols.md) for the protocol family.
 `show: { holdS, fadeS, scenes: [{ name, pattern, params }] }`. Patterns (`src/patterns.mjs`): `ribbonChase`
 (`loops`, `speed`, `sat`), `worldWipe` (`axis`, `speedMM`, `spacingMM`, `widthMM`, `space: world|fixture`, `hue`),
 `planeSweep` (`speedMM`, `spacingMM`, `widthMM`, `hue`), `normalRGB`, **cylinder/volume**: `helix` (a barber-pole spiral winding around `v` as it climbs `s`: `turns`, `pitch`, `speed`, `width`, `hue`, `hueAlong`, `dir`), `lantern` (a point light carried through the room, lighting each LED by its **normal** — near sides glow, far sides dark: `path: orbit|eight`, `radiusMM`, `heightMM`, `speed`, `falloffMM`, `ambient`), `swirl` (spiral arms over the floor about the installation's centre, climbing and wrapping each column: `arms`, `spacingMM`, `speed`, `twist`, `wrap`), `drops` (drops falling down each column on one side, spinning: `rate`, `speed`, `lengthS`, `spin`), `spotlight` (visibility from an orbiting
-camera: `orbitDegPerSec`, `angleDeg`, `elevDeg`, `fovDeg`), `projector` (projection-map a texture). A pattern
-is `(pixel, t, ctx) → [r, g, b]` over the pixel's world position/normal — add your own in `patterns.mjs`.
+camera: `orbitDegPerSec`, `angleDeg`, `elevDeg`, `fovDeg`), `projector` (projection-map a texture),
+**per-strand** (a rope, a rolled panel and a baked piece carry `strand` on every pixel — these are
+Thread's luxpi looks, generalized): `comet` (a comet bouncing down every strand with a tail: `speed`,
+`tail`, `hue`, `hueStep`, `ambient`), `plasma` (layered sine fields along each strand, staggered per
+strand: `speed`, `scale`, `hueDrift`), `fire` (heat injected at LED 0 climbing each string, cooling:
+`rate`, `cooling`, `seed`), `strands` (one flat colour per strand, or per `group` of strands — Thread's
+three ropes per tube — so the wiring reads at a glance), `solid` (one colour: `rgb` or `hue`/`sat`/`value`).
+A pattern is `(pixel, t, ctx) → [r, g, b]` over the pixel's world position/normal — add your own in
+`patterns.mjs`.
 
-### 3.6 Inputs and merge
+A page's pattern bar (or `GET /control?scene=<name|index>`, or `{ "type": "control", "scene": … }` on
+the bus) **pins** a scene: the show crossfades from whatever is on to it over `fadeS`, then holds it.
+`mode=auto` resumes the cycle.
+
+### 3.6 Controls — the piece's own buttons
+
+A piece with a physical interface (Thread's two pedestals) describes it as data, so the viewer can
+draw it and any client on the bus can speak it:
+
+```yaml
+controls:
+  panels:
+    - { name: pedestal A, buttons: [x, y, z], keys: { q: x, w: y, e: z },
+        message: { type: button, podpi: a, button: $button, pressed: $pressed } }
+  status:
+    type: status                                  # the JSON message that reports state
+    fields: [{ label: strand X, path: states.x }, { label: pedestals, path: podpi }]
+```
+
+Each panel is a row of buttons (with keyboard keys); a press/release sends the panel's `message`
+with `$button` / `$pressed` filled in — over the page's live socket (the bridge, a hub's `/bus`).
+`status` names the message type that carries state back and the fields to show next to the
+buttons (a dotted `path` into the message; an object shows its truthy keys). The viewer shows the
+panel while a live socket is connected (`?controls=0` hides it). The hub relays any non-control
+JSON between bus clients, so a game engine on the bus sees the presses and can answer.
+
+### 3.7 Inputs and merge
 
 Other tools drive the piece *through* voxeled — several at once:
 
@@ -243,7 +276,12 @@ normal **is** that radial direction (a diffused rope emits away from the tube). 
 - `angleFrom: <path>` — angle 0 points **toward** that path (Thread measures from the inboard
   direction, tube → spine). Without it, angle 0 = `up` projected ⟂ the tangent (on top of the tube),
   exactly `place_leds.py`'s construction.
-- Ropes default to a diffused emitter (170°, soft body).
+- Ropes default to a diffused emitter (170°, soft body) with `diffuserMM: 26` — the rope's own
+  diameter. The viewer draws every strand of a fixture whose emitter has `diffuserMM` as **one lit
+  tube** through its LEDs (sim mode, **R** toggles): each ring takes its LED's colour, lit through a
+  270° arc from the LED's normal with the strip's shadow at its back, dimmed as it turns away — what a
+  diffused rope looks like. `diffuserMM: 0` for bare LEDs on a string. A baked piece keeps it
+  (`meta.emitter`), so a `type: vxl` Thread draws as ropes too.
 
 **`along`** — whole instances spaced along a path, +Z following the tangent (`orient: none` keeps
 the entry's `rotDeg`). Example: `examples/mobius-heart/layouts/ropes.yaml`.
@@ -433,4 +471,36 @@ Everything in this guide except the wire also runs with no hub at all: open `vie
 from any static host and the page runs the hub itself, keeping the layout and the files you drop
 in inside the browser (IndexedDB). Author there, export a bundle, publish a baked piece next to
 the page, or point it at a LAN hub's `/bus` for live frames. Details: [STATIC.md](STATIC.md).
+
+### 13.1 The public face: `?ui=bar`, embedding
+
+The same page has a **presentation** mode for a piece's public page (dnuke.art/thread runs on it):
+`?ui=bar` replaces the authoring HUD with a bar along the bottom — the show's scenes (click to pin
+one, crossfading from what's on) and the view toggles (live · orbit · sim · glow · ropes · model ·
+normals) — auto-orbits, and hides the floor grid. `?embed=1` is a bare canvas (no UI, no zoom/pan)
+for a tile. Both accept:
+
+| param | |
+|---|---|
+| `scene=<name>` | start pinned on that scene (and don't orbit) |
+| `orbit=0/1`, `zoom=1.5`, `az=`, `el=`, `cam=x,y,z&target=x,y,z` (mm) | the view; `zoom` > 1 is closer |
+| `sim=1`, `bloom=0`, `ropes=0`, `normals=1`, `model=opaque/hidden`, `grid=0/1`, `bg=0c0c0c` | look |
+| `ws=wss://…` | connect the live socket on load; `live=only` (bar/embed default: only what arrives is shown, dark otherwise — a dark piece means the sender is silent) or `live=merge` (over the show) |
+| `controls=0` | don't draw the piece's control panels |
+
+**Live mode** shows a dot top-right (green: frames arriving, with the rate · amber: connected, nothing
+coming · red: down, reconnecting every 2 s · blue: the server closed with code 4000, *asleep* — it
+reconnects when a control button is pressed) and, in live-only mode, a banner saying which. Picking a
+scene by hand leaves live mode, as on a stage.
+
+**On your own site.** `node scripts/vendor.mjs <site>/voxeled` copies the viewer and its modules
+(nothing else) into a site; a page there embeds the piece and keeps its own chrome:
+
+```html
+<iframe src="/voxeled/viewer/?project=/thread/thread.yaml&ui=bar&sim=1&zoom=1.4"></iframe>
+```
+
+The host page can drive it with `postMessage`: `{ voxeled: "key", key: "q", type: "keydown"|"keyup" }`
+(forward the page's keys to the control panels), `{ voxeled: "scene", scene: "plasma" }`,
+`{ voxeled: "connect", url }` (`url: null` disconnects).
 
