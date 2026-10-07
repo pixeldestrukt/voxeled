@@ -52,6 +52,7 @@ export function buildSceneFromLayout({ name, units = "mm", instances, meta = {} 
         rotDeg: inst.rotDeg || [0, 0, 0],
         ...(inst.output ? { output: inst.output } : {}),
         ...(inst.emitter ? { emitter: inst.emitter } : {}), // how this instance's LEDs emit (sim)
+        ...(inst.fixture.meta?.kind === "screen" ? { screen: { cols: inst.fixture.meta.cols, rows: inst.fixture.meta.rows, widthMM: inst.fixture.meta.widthMM, heightMM: inst.fixture.meta.heightMM } } : {}), // a texel surface: the viewer draws one plane, screen.html shows it fullscreen
         ...(inst.src ? { src: inst.src } : {}),
         ...(inst.track ? { track: inst.track } : {}), // a live pose drives this instance's transform
       })),

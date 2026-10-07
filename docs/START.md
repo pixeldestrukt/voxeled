@@ -65,6 +65,7 @@ hanging 1.2 m up, running a chase in its data order.
 | a flat panel, a matrix, a strip laid in rows | `matrix` | `cols`, `rows`, `pitchMM`, `wiring: rows\|columns` (how the data snakes), `start` corner, `serpentine`, `center` |
 | a strip, string or rope along a line or a curve | `rope` | `path` (inline points `[[x,y,z], …]` or a named path), `count` or `pitchMM`; `radiusMM` + `angleDeg` if it's wrapped around a tube; normals point outward |
 | a flexible panel rolled into a tube | `tube` | `cols` around, `rows` along, `panels` end to end, `pitchMM`, `seamMM` |
+| an LED wall as an image, a projector, a monitor | `screen` | `cols`, `rows` (texels), `widthMM`; lit by the same patterns as the LEDs, shown fullscreen by `viewer/screen.html` |
 | a CAD model with the LED chips modelled | `mesh` | `file` (STL/OBJ/GLB), `scaleToMM`; one LED per chip body, thin axis = the LED's normal |
 | positions exported from Blender / Grasshopper / another tool | `vxl` | `file` (a baked `.vxl.json`) — see the [Blender addon](../integrations/blender/) and [Grasshopper component](../integrations/grasshopper/) |
 | a glTF with points/normals | `gltf` | `file`, `scaleToMM` |

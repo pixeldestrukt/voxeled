@@ -120,9 +120,11 @@ plausible later; a custom shader language is not worth it.
 - *video into LEDs* — a `sampler` layer: source = a video, canvas, camera, screen capture (page) or
   ffmpeg/NDI frames (hub); mapping = a projection from a camera pose (projection mapping — `projector`
   already sketches it), fixture uv, or a world box.
-- *screens as fixtures* — a `screen` fixture is a quad or mesh with a resolution; the layer stack
-  renders it per texel; it shows in the simulator and goes out as a fullscreen window / NDI. An LED
-  wall and a projector surface share one spatial pattern. This is where the GLSL backend earns its keep.
+- *screens as fixtures* ✅ — a `screen` fixture is a quad with a resolution; the layer stack renders
+  it per texel (the JS path, ≤ 262k texels); the simulator draws it as one continuous plane and
+  `viewer/screen.html` shows it fullscreen for a projector or a monitor (NDI later). An LED wall and
+  a projector surface share one spatial pattern (`layouts/screen.yaml`: a plane of light crosses the
+  columns and the wall at the same real height). Big surfaces are where the GLSL backend earns its keep.
 
 **AR / VR.** The simulator is three.js, so WebXR VR is the existing renderer with `xr.enabled`: walk the
 piece at true scale (the site/vantage work already uses real metres). AR on a phone is WebXR hit-test
@@ -130,7 +132,7 @@ piece at true scale (the site/vantage work already uses real metres). AR on a ph
 deeper AR use is the one Phase 2 names: the phone camera as the automapper, and later solving a
 projector's pose for the video half.
 
-**Order:** spaces + validation ✅ → layers ✅ → `screen` fixture + a video sampler on the JS path → the
+**Order:** spaces + validation ✅ → layers ✅ → `screen` fixture ✅ → a video sampler on the JS path → the
 GLSL backend in the page → WebXR VR → AR preview → modulators (LFO / audio / MIDI) on params and cue
 lists for the show-control mode.
 

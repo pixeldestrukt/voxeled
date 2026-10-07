@@ -97,6 +97,7 @@ matches what you have:
 | a panel, matrix, or strip laid in rows | `matrix` | `cols`, `rows`, `pitchMM`, `wiring: rows\|columns`, `start` corner, `serpentine` |
 | a strip, string or rope along a line or curve | `rope` | `path` (inline points `[[x,y,z], …]` or a named path), `count` or `pitchMM`; `radiusMM` + `angleDeg` around a tube; `diffuserMM` draws it as a lit tube |
 | a flexible panel rolled into a tube | `tube` | `cols` around, `rows` along, `panels`, `pitchMM` |
+| a video surface: an LED wall as an image, a projector, a monitor | `screen` | `cols`, `rows` (texels), `widthMM`; the same patterns light it; `viewer/screen.html?instance=…` is the fullscreen output (hub only) |
 | one big LED / a lamp | `dot` | `sizeMM` |
 
 **From a file — the builder.** *builder* → **new fixture from a file**: name it, choose the kind,
@@ -151,6 +152,7 @@ spiral wraps a tube. Use them by name in `show:`; parameters in `params:`.
 | `normalRGB` | colours each LED by its normal — the map made visible | — |
 | `spotlight`, `projector` | only what a virtual camera sees; project a texture through it | `orbitDegPerSec`, `angleDeg`, `elevDeg`, `fovDeg` |
 | `point`, `paint` | a torch beam from a tracked wand / phone; a brush that leaves light | see [GUIDE §3.5](GUIDE.md#35-show-and-patterns) |
+| `testCard` | a grid, border, centre cross and tinted quadrants on a screen — align a projector | `cells`, `line`, `hue` |
 
 **Your own.** A pattern is code: `(pixel, t, ctx) → [r, g, b]` in 0..1, with `pixel.p` (mm),
 `pixel.n`, `pixel.s` / `pixel.v` (0→1 along / across its fixture), `pixel.strand`, `pixel.inst`, and

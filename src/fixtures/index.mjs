@@ -6,6 +6,7 @@ import { meshToFixture } from "../io/mesh-import.mjs";
 import { ropeFixture } from "./rope.mjs";
 import { tubeFixture } from "./tube.mjs";
 import { matrixFixture } from "./matrix.mjs";
+import { screenFixture } from "./screen.mjs";
 import { add, matVec, eulerMatrix, matMul, matToEulerDeg } from "../vec.mjs";
 import { defaultVFS } from "../vfs.mjs";
 
@@ -47,6 +48,9 @@ export const FIXTURES = {
   // A flat grid (8×8, 16×16, 8×32 panels; strips laid in rows) facing +Z: src/fixtures/matrix.mjs.
   //   { type: matrix, params: { cols: 32, rows: 8, pitchMM: 10, wiring: columns } }
   matrix: (params) => withSpaces((params.emitter ? withEmitter(matrixFixture(params), params.emitter) : matrixFixture(params)), ["fixture"]),
+  // A surface of texels — an LED wall as an image, a projection surface, a monitor: src/fixtures/screen.mjs.
+  //   { type: screen, params: { cols: 96, rows: 54, widthMM: 3200 } }
+  screen: (params) => withSpaces(screenFixture(params), ["fixture", "screen"]),
   tube: (params) => withSpaces((params.emitter ? withEmitter(tubeFixture(params), params.emitter) : tubeFixture(params)), ["fixture", "strand", "cylinder"]),
   // A baked fixture file (.vxl.json) — what the Blender addon and the Grasshopper component write,
   // or a scene from `vox import`. Must carry normals (`vox check` enforces it).

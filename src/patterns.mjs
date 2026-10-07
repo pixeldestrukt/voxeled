@@ -300,9 +300,28 @@ export const SPACES = {
   fixture:  { what: "along / across the fixture (px.s, px.v) and its local frame (ctx.local)", degrade: "flat: s = v = 0" },
   strand:   { what: "which string of the fixture (px.strand) and where along it", degrade: "the whole instance is one strand" },
   cylinder: { what: "around (px.v, 0→1) and along (px.s) a tube, radial normals", degrade: "v = 0: along only — a chase, not a spiral" },
+  screen:   { what: "the texel's place in the image: px.s left→right, px.v top→bottom (a screen fixture)", degrade: "the fixture's own s / v" },
 };
+// ── screen patterns: the surface as an image ───────────────────────────────────────────────
+// A test card for a projection surface or an LED wall — a grid, a border, a centre cross and a
+// tinted quadrant (so left/right/top/bottom read at a glance): align the projector, check the map.
+export function testCard({ cells = 8, line = 0.02, hue = 0 } = {}) {
+  return (px) => {
+    const u = px.s, v = px.v;
+    const gu = (u * cells) % 1, gv = (v * cells) % 1, half = line * cells / 2;
+    const grid = Math.min(gu, 1 - gu) < half || Math.min(gv, 1 - gv) < half;
+    const border = u < line || u > 1 - line || v < line || v > 1 - line;
+    const cross = (Math.abs(u - 0.5) < line / 2 && Math.abs(v - 0.5) < 0.12) || (Math.abs(v - 0.5) < line / 2 && Math.abs(u - 0.5) < 0.12);
+    if (border || cross) return [1, 1, 1];
+    if (grid) return [0.55, 0.55, 0.55];
+    // the quadrant tint: top-left red · top-right green · bottom-left blue · bottom-right amber
+    const q = (u < 0.5 ? 0 : 1) + (v < 0.5 ? 0 : 2);
+    return hsv((hue + [0, 0.33, 0.62, 0.11][q]) % 1, 0.8, 0.22);
+  };
+}
+testCard.needs = ["screen"];
 ribbonChase.needs = ["fixture"]; planeSweep.needs = ["world"]; worldWipe.needs = ["world"]; normalRGB.needs = ["world"];
 spotlight.needs = ["world"]; projector.needs = ["world"]; helix.needs = ["cylinder"]; lantern.needs = ["world"]; swirl.needs = ["world"]; drops.needs = ["cylinder"];
 point.needs = ["world"]; paint.needs = ["world"]; comet.needs = ["strand"]; plasma.needs = ["strand"]; fire.needs = ["strand"]; strands.needs = ["strand"]; solid.needs = [];
 
-export const PATTERNS = { ribbonChase, worldWipe, planeSweep, normalRGB, spotlight, projector, helix, lantern, swirl, drops, point, paint, comet, plasma, fire, strands, solid };
+export const PATTERNS = { ribbonChase, worldWipe, planeSweep, normalRGB, spotlight, projector, helix, lantern, swirl, drops, point, paint, comet, plasma, fire, strands, solid, testCard };

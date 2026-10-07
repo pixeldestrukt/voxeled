@@ -18,7 +18,7 @@ LAN hub's job (`node examples/mobius-heart/run.mjs layout.yaml`), which the page
 | | |
 |---|---|
 | `viewer/?static=1` | the last project you opened in this browser (or the columns example) |
-| `viewer/?example=site` | an example layout fetched next to the page: `columns`, `two-hearts`, `site`, `ropes`, `grid-3x3`, `facing-hearts`, `imported`, `patched` |
+| `viewer/?example=site` | an example layout fetched next to the page: `columns`, `two-hearts`, `site`, `ropes`, `screen`, `grid-3x3`, `facing-hearts`, `imported`, `patched` |
 | `viewer/?project=https://…/thread.yaml` | a hosted project: the layout and the files it names (`collectFiles`), fetched relative to it |
 | `viewer/?ws=ws://192.168.1.20:8080/bus` | live frames from a LAN hub (raw RGB or Art-Net over the socket) merged over the show |
 | `viewer/?project=…&ui=bar&sim=1` | the **public face**: a pattern bar + view toggles, live mode, the piece's controls ([GUIDE §13.1](GUIDE.md#131-the-public-face-uibar-embedding)); `?embed=1` a bare tile |

@@ -335,6 +335,7 @@ const hubAPI = {
 let scene = null, N = 0, mesh = null, simMesh = null, normalsLines = null;
 let simOn = qs.get("sim") === "1", bloomOn = qsOn("bloom", true), normalsOn = qs.get("normals") === "1"; // view state survives scene rebuilds
 let ropesOn = qsOn("ropes", true), ropes = []; // diffused ropes: each strand of a fixture with emitter.diffuserMM as a lit tube (sim mode)
+let screens = [], screenPixel = null; // screen fixtures: one textured plane per instance (its texel quads are hidden); screenPixel[i] = 1 for a texel
 let modelMode = { translucent: 0, opaque: 1, hidden: 2 }[qs.get("model")] ?? (+qs.get("model") || 0); // 0 translucent · 1 opaque · 2 hidden (?model=opaque)
 let framed = false, groundGrid = null;
 const structures = [];
@@ -463,7 +464,8 @@ function disposeSceneObjects() {
   for (const o of [mesh, simMesh, normalsLines]) if (o) { scene3.remove(o); o.geometry.dispose(); }
   for (const st of structures) scene3.remove(st.group);
   for (const r of ropes) { scene3.remove(r.group); for (const m of r.meshes) { m.geometry.dispose(); m.material.dispose(); } }
-  structures.length = 0; ropes = []; ropePixel = null;
+  for (const sx of screens) { scene3.remove(sx.mesh); sx.mesh.geometry.dispose(); sx.mesh.material.dispose(); sx.tex.dispose(); }
+  structures.length = 0; ropes = []; ropePixel = null; screens = []; screenPixel = null;
   mesh = simMesh = normalsLines = null;
 }
 let ropePixel = null; // per pixel: 1 if a rope tube carries it (its sim quad is hidden while ropes are on)
@@ -541,8 +543,25 @@ function buildSceneObjects(sc) {
     if (!meshes.length) continue;
     scene3.add(group); ropes.push({ group, meshes, inst: k, strands: strands.size });
   }
+  // screens: a screen fixture's texels as ONE textured plane (row 0 at the top), smooth like a
+  // projection; its per-texel quads and dots are hidden. The frame feeds the texture directly.
+  screenPixel = new Uint8Array(N);
+  (sc.meta?.instances || []).forEach((it, k) => {
+    if (!it.screen) return;
+    const { cols, rows, widthMM, heightMM } = it.screen; let offset = -1;
+    for (let i = 0; i < N; i++) if (instOf[i] === k) { if (offset < 0) offset = i; screenPixel[i] = 1; }
+    if (offset < 0) return;
+    const data = new Uint8Array(cols * rows * 4); for (let j = 3; j < data.length; j += 4) data[j] = 255;
+    const tex = new THREE.DataTexture(data, cols, rows, THREE.RGBAFormat, THREE.UnsignedByteType);
+    tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = qsOn("pixelated", false) ? THREE.NearestFilter : THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
+    const e = emitters[k] || EMIT_DEFAULT; // a surface, not a bare chip: its gain scales the plane so white doesn't drown the room in bloom
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(widthMM, heightMM), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide, color: new THREE.Color().setScalar(Math.min(1, (e.gain ?? 1.2) / 1.6)) }));
+    m.name = `screen:${k}`; scene3.add(m);
+    screens.push({ mesh: m, tex, data, inst: k, offset, cols, rows });
+  });
   for (let k = 0; k < instTf.length; k++) placeInstance(k);
   scene3.add(mesh, simMesh, normalsLines);
+  if (screens.length) console.log("VOXELED_SCREENS_READY", screens.length, "screen(s)", screens.map((x) => `${x.cols}x${x.rows}`).join(" "));
   if (ropes.length) console.log("VOXELED_ROPES_READY", ropes.length, "fixture(s)", ropes.reduce((a, r) => a + r.meshes.length, 0), "rope(s)");
 
   if (!composer) {
@@ -600,10 +619,11 @@ function placeInstance(k) {
     const p = matVec(tf.R, [localP[i * 3], localP[i * 3 + 1], localP[i * 3 + 2]]);
     p[0] += tf.pos[0]; p[1] += tf.pos[1]; p[2] += tf.pos[2];
     const n = matVec(tf.R, [localN[i * 3], localN[i * 3 + 1], localN[i * 3 + 2]]);
-    _dummy.position.set(p[0], p[1], p[2]); _dummy.quaternion.identity(); _dummy.scale.set(1, 1, 1); _dummy.updateMatrix();
+    const tex = screenPixel?.[i] === 1, ds = tex ? 0 : 1;
+    _dummy.position.set(p[0], p[1], p[2]); _dummy.quaternion.identity(); _dummy.scale.set(ds, ds, ds); _dummy.updateMatrix();
     mesh.setMatrixAt(i, _dummy.matrix);
     _nv.set(n[0], n[1], n[2]).normalize(); _q.setFromUnitVectors(_z, _nv);
-    const hide = ropesOn && ropePixel?.[i], bs = hide ? 0 : bodySize[i];
+    const hide = tex || (ropesOn && ropePixel?.[i]), bs = hide ? 0 : bodySize[i];
     _dummy.quaternion.copy(_q); _dummy.scale.set(bs, bs, 1); _dummy.updateMatrix();
     simMesh.setMatrixAt(i, _dummy.matrix);
     qpos.set([p[0], p[1], p[2], p[0] + n[0] * qlen, p[1] + n[1] * qlen, p[2] + n[2] * qlen], i * 6);
@@ -613,6 +633,7 @@ function placeInstance(k) {
   normalsLines.geometry.attributes.position.needsUpdate = true;
   for (const st of structures) if (st.inst === k) { st.group.position.set(...tf.pos); st.group.rotation.set(tf.rotDeg[0] * D2R, tf.rotDeg[1] * D2R, tf.rotDeg[2] * D2R, "ZYX"); }
   for (const r of ropes) if (r.inst === k) { r.group.position.set(...tf.pos); r.group.rotation.set(tf.rotDeg[0] * D2R, tf.rotDeg[1] * D2R, tf.rotDeg[2] * D2R, "ZYX"); }
+  for (const sx of screens) if (sx.inst === k) { sx.mesh.position.set(...tf.pos); sx.mesh.rotation.set(tf.rotDeg[0] * D2R, tf.rotDeg[1] * D2R, tf.rotDeg[2] * D2R, "ZYX"); }
 }
 
 // ── structures: the sculpture's own CAD around the LEDs ──────────────────────────
@@ -827,11 +848,12 @@ function applyFrame(d) {
   for (let i = 0; i < n; i++) { tmp.setRGB(d[i * 3] / 255, d[i * 3 + 1] / 255, d[i * 3 + 2] / 255); mesh.setColorAt(i, tmp); simMesh.setColorAt(i, tmp); }
   mesh.instanceColor.needsUpdate = true; simMesh.instanceColor.needsUpdate = true;
   if (colorData) { for (let i = 0; i < n; i++) { colorData[i * 4] = d[i * 3]; colorData[i * 4 + 1] = d[i * 3 + 1]; colorData[i * 4 + 2] = d[i * 3 + 2]; colorData[i * 4 + 3] = 255; } colorTex.needsUpdate = true; }
+  for (const sx of screens) { const { cols, rows, data, offset } = sx; for (let r = 0; r < rows; r++) { const src = (offset + r * cols) * 3, dst = ((rows - 1 - r) * cols) * 4; for (let c = 0; c < cols; c++) { data[dst + c * 4] = d[src + c * 3]; data[dst + c * 4 + 1] = d[src + c * 3 + 1]; data[dst + c * 4 + 2] = d[src + c * 3 + 2]; } } sx.tex.needsUpdate = true; }
   frameCount++;
 }
 
 // ── static mode: the hub runs in this page ──────────────────────────────────────
-const EXAMPLES = ["columns", "two-hearts", "site", "ropes", "grid-3x3", "facing-hearts", "imported", "patched"];
+const EXAMPLES = ["columns", "two-hearts", "site", "ropes", "screen", "grid-3x3", "facing-hearts", "imported", "patched"];
 const exampleUrl = (name) => new URL(`../examples/mobius-heart/layouts/${name}.yaml`, location.href).href;
 let local = null, store = null;
 async function bootStatic() {
@@ -1410,7 +1432,7 @@ function loop() {
 }
 loop();
 // debug / automation hook (also lets tests drive the builder without a mouse)
-window.voxeled = { select, deselect, liveTransform, commitTransform, pickScene, liveConnect, liveDisconnect, ctlPress, scene3, get ropes() { return ropes; }, get api() { return api; }, get structures() { return structures; }, get instTf() { return instTf; }, get selected() { return selected; }, get scene() { return scene; }, get currentScene() { return currentScene; } };
+window.voxeled = { select, deselect, liveTransform, commitTransform, pickScene, liveConnect, liveDisconnect, ctlPress, scene3, get ropes() { return ropes; }, get screens() { return screens; }, get api() { return api; }, get structures() { return structures; }, get instTf() { return instTf; }, get selected() { return selected; }, get scene() { return scene; }, get currentScene() { return currentScene; } };
 boot().catch((e) => { $("h-name").textContent = "load error"; console.error("VOXELED_ERROR", e); });
 </script>
 </body>

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>voxeled — screen</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; cursor: none; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  canvas { display: block; image-rendering: auto; max-width: 100vw; max-height: 100vh; }
+  body.pixelated canvas { image-rendering: pixelated; }
+  body.fill canvas { width: 100vw !important; height: 100vh !important; max-width: none; max-height: none; }
+  #ov { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); color: #8da0c2; font-size: 14px; letter-spacing: .1em; text-transform: uppercase; text-align: center; pointer-events: none; transition: opacity .4s; }
+  #ov b { display: block; color: #dfe6f3; font-weight: 400; font-size: 22px; margin-bottom: 8px; }
+  body.live #ov { opacity: 0; }
+  #ov.err { color: #e04040; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ov"><b id="t">screen</b><span id="d">waiting for the hub…</span></div>
+<script type="module">
+// A screen fixture's texels, fullscreen — for a projector, a monitor, an LED-wall preview.
+//   screen.html?instance=<name>   (default: the first screen in the scene)
+//   &ws=ws://host/bus              another hub's bus (default: this host's)
+//   &fill=1                        stretch to the window instead of letterboxing (keeping the aspect)
+//   &pixelated=1                   nearest-neighbour upscaling (an LED wall look); default smooth
+// Keys: F (or a tap) → fullscreen.
+const qs = new URLSearchParams(location.search), $ = (id) => document.getElementById(id);
+if (qs.get("fill") === "1") document.body.classList.add("fill");
+if (qs.get("pixelated") === "1") document.body.classList.add("pixelated");
+const canvas = $("c"), g = canvas.getContext("2d");
+let S = null; // { offset, cols, rows, name }
+function say(title, detail, err = false) { $("t").textContent = title; $("d").textContent = detail; $("ov").classList.toggle("err", err); }
+async function boot() {
+  const r = await fetch("scene.json"); if (!r.ok) throw new Error(`HTTP ${r.status} fetching scene.json — is this a hub?`);
+  const sc = await r.json();
+  const inst = sc.meta?.instances || [], want = qs.get("instance");
+  let k = inst.findIndex((i) => i.screen && (!want || i.name === want));
+  if (k < 0) throw new Error(want ? `no screen instance "${want}" (screens: ${inst.filter((i) => i.screen).map((i) => i.name).join(", ") || "none"})` : "the scene has no screen fixture");
+  const offset = sc.pixels.findIndex((p) => (p.inst || 0) === k);
+  const { cols, rows } = inst[k].screen;
+  S = { offset, cols, rows, name: inst[k].name };
+  canvas.width = cols; canvas.height = rows;
+  if (!document.body.classList.contains("fill")) { const fit = () => { const a = cols / rows, w = innerWidth, h = innerHeight; if (w / h > a) { canvas.style.height = h + "px"; canvas.style.width = h * a + "px"; } else { canvas.style.width = w + "px"; canvas.style.height = w / a + "px"; } }; addEventListener("resize", fit); fit(); }
+  say(S.name, `${cols} × ${rows} · waiting for frames`);
+  document.title = `voxeled — ${S.name}`;
+  console.log("VOXELED_SCREEN_READY", S.name, cols, rows, "offset", offset);
+  connect();
+}
+const img = () => new ImageData(S.cols, S.rows);
+let frame = null, frames = 0;
+function draw(d) {
+  if (!S) return;
+  frame ||= img();
+  const n = S.cols * S.rows, px = frame.data;
+  for (let j = 0; j < n; j++) { const i = (S.offset + j) * 3; px[j * 4] = d[i]; px[j * 4 + 1] = d[i + 1]; px[j * 4 + 2] = d[i + 2]; px[j * 4 + 3] = 255; }
+  g.putImageData(frame, 0, 0);
+  if (!frames++) { document.body.classList.add("live"); console.log("VOXELED_SCREEN_LIVE"); }
+}
+function connect() {
+  const url = qs.get("ws") || `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/bus`;
+  const ws = new WebSocket(url); ws.binaryType = "arraybuffer";
+  ws.onmessage = (ev) => { if (typeof ev.data === "string") { try { if (JSON.parse(ev.data).type === "scene") location.reload(); } catch {} return; } draw(new Uint8Array(ev.data)); };
+  ws.onclose = () => { document.body.classList.remove("live"); say(S?.name || "screen", "hub closed · reconnecting"); setTimeout(connect, 1000); };
+  ws.onerror = () => {};
+}
+const full = () => { if (!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(() => {}); };
+addEventListener("keydown", (e) => { if (e.key.toLowerCase() === "f") full(); });
+addEventListener("click", full);
+boot().catch((e) => { say("screen", e.message, true); console.error("VOXELED_ERROR", e.message); });
+</script>
+</body>
+</html>

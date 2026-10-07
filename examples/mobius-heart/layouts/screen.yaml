@@ -1,0 +1,34 @@
+# voxeled layout — SCREEN: LEDs and a video surface in ONE scene. Two rolled columns stand in front
+# of a wall: a `screen` fixture — 96×54 texels over 3.2 m, a projection surface or an LED wall. The
+# same spatial patterns light both: a plane of light rising through the room crosses the columns
+# and the wall at the same real height; a layered scene puts a helix on the tubes and a vortex on
+# the wall. Output: the viewer draws the wall as one continuous plane; a projector shows it with
+#   viewer/screen.html?instance=wall   (fullscreen: F) · an LED wall takes an Art-Net/DDP patch.
+
+name: screen
+units: mm
+fixtures:
+  column:
+    type: tube
+    params: { cols: 8, rows: 32, panels: 3, pitchMM: 10, seamMM: 10 }
+  wall:
+    type: screen
+    params: { cols: 96, rows: 54, widthMM: 3200 }        # heightMM follows the aspect: 1800
+instances:
+  - { fixture: column, name: left,  pos: [-1100, 0, 300] }
+  - { fixture: column, name: right, pos: [1100, 0, 300] }
+  - { fixture: wall,   name: wall,  pos: [0, 1500, -900] }   # centre 1.5 m up, 0.9 m behind the columns
+show:
+  holdS: 6
+  fadeS: 2.5
+  scenes:
+    - { name: planes rising (both),   pattern: planeSweep, params: { speedMM: 400, spacingMM: 1200, widthMM: 250 } }
+    - name: helix + vortex (layers)                  # a specialised pattern where it fits, another on the wall
+      layers:
+        - { pattern: helix, on: { space: cylinder }, params: { turns: 1, pitch: 3, speed: 0.5 } }
+        - { pattern: swirl, on: { fixture: wall }, params: { arms: 3, spacingMM: 1200, twist: 0, wrap: 0 } }
+    - { name: lantern carried through, pattern: lantern,    params: { path: eight, heightMM: 1200, speed: 25 } }
+    - name: test card                                # the wall's own space: align a projector
+      layers:
+        - { pattern: solid, params: { value: 0.08 } }
+        - { pattern: testCard, on: { space: screen } }

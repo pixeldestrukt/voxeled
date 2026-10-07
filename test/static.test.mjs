@@ -91,6 +91,10 @@ else {
   // 2. the site example: structures + a panorama come from the fetched files (object URLs), standing at a vantage works
   log = await run("example=site&stand=sidewalk&bearing=0", "static-site");
   ok(/VOXELED_LOCAL_HUB site 3 file\(s\)/.test(log) && log.includes("VOXELED_STRUCTURES_READY 4 of 4") && log.includes("VOXELED_STAND_READY sidewalk"), "site example: 3 files fetched, 4 structures loaded from object URLs, backdrop up");
+  // 2b. a screen fixture: LEDs and a texel surface in one scene — drawn as one textured plane
+  log = await run("example=screen&sim=1", "static-screen");
+  ok(/VOXELED_LOCAL_HUB screen \d+ file\(s\) 6720 px/.test(log) && log.includes("VOXELED_SCREENS_READY 1 screen(s) 96x54"), "screen example: two columns + a 96×54 wall (6,720 px), the wall drawn as one plane");
+  ok(!log.includes("VOXELED_ERROR") && !/Uncaught/.test(log), "no page errors with a screen");
   // 3. builder against the in-page hub; a save lands in IndexedDB and is reopened on the next visit
   log = await run("example=columns&build=1&select=0", "static-build");
   ok(log.includes("VOXELED_BUILDER_READY 8"), "builder ready against the in-page hub (8 layout entries)");

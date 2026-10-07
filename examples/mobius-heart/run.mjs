@@ -329,6 +329,7 @@ if (state.inputs) {
   console.log(`           merge: ${m.mode} · fallback ${m.fallback} — the internal show runs wherever no input is live`);
 }
 console.log(`  viewer:  ${bus.url}`);
+for (const it of scene.meta.instances || []) if (it.screen) console.log(`  screen:  ${bus.url}screen.html?instance=${encodeURIComponent(it.name)}   (${it.screen.cols}×${it.screen.rows} · F = fullscreen, for a projector or a monitor)`);
 // Public interaction, LAN edition: a phone on the same Wi-Fi scans this and gets the scene
 // picker + crossfader (viewer/phone.html on the hub's /control seam). Hosted is the same seam.
 if (bus.lanUrl && !process.env.VOX_NO_QR) {

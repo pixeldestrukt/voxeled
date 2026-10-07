@@ -233,6 +233,24 @@ LED, a diffused strip, and a glowing rope are the same body with different `view
 `color × lobe(view angle) × core`, its back is dark backing, and both write depth, so the bodies
 occlude one another (a panel ribbon's quads *are* the ribbon, dark on the back).
 
+## Screens — a video surface as a fixture
+
+```yaml
+fixtures:
+  wall: { type: screen, params: { cols: 96, rows: 54, widthMM: 3200 } }   # heightMM follows the aspect
+instances:
+  - { fixture: wall, name: wall, pos: [0, 1500, -900] }                   # centred on pos, facing +Z
+```
+
+A `screen` is a surface of **texels**: row-major from the top-left, centred on the instance origin,
+every texel facing +Z, `s` 0→1 left→right and `v` 0→1 top→bottom (the `screen` space). It is lit by
+the same patterns and layers as the LEDs and carried on the bus as one RGB per texel, contiguous
+in the instance's run. The scene's instance entry carries `screen: { cols, rows, widthMM, heightMM }`
+so the viewer draws one textured plane and `viewer/screen.html?instance=wall` shows it fullscreen
+(a projector, a monitor; `&fill=1` stretches, `&pixelated=1` for an LED-wall look, **F** = fullscreen).
+An Art-Net/DDP `output` patches it as a real LED wall. The JS path renders every texel each frame:
+at most 262,144 texels per screen.
+
 ## Paths & ropes — placing LEDs on a structure
 
 Thread's steel was the *input*; its LEDs were *derived* — diffused ropes wrapped along the tubes at
