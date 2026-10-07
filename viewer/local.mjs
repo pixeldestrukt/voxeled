@@ -15,6 +15,8 @@ import { createSources } from "../src/input/sources.mjs";
 import { buildInputMap } from "../src/input/map.mjs";
 import { eachArtNet, isArtNet, OP_DMX } from "../src/input/artnet-packet.mjs";
 import { memoryVFS, fetchVFS, dirname, joinPath } from "../src/vfs.mjs";
+import { createVideoRegistry } from "../src/video.mjs";
+import { createPageVideo } from "./video.mjs";
 
 export { FIXTURES, PATTERNS, parseYAML, stringifyYAML, collectFiles, memoryVFS, fetchVFS };
 
@@ -24,6 +26,9 @@ export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 
   const control = { mode: "auto", fader: 0, a: 0, b: 1 };
   const vfs = memoryVFS(project.files || new Map(), { baseDir: project.layoutDir || "" });
   const state = { doc: null, header: "", scene: null, show: null, hub: null, sources: null, remote: null };
+  // the sampler's image sources: files decode on their own, the camera / a display capture wait for a click (api.video.start)
+  const videoRegistry = createVideoRegistry();
+  const video = createPageVideo({ registry: videoRegistry, vfs, onStatus: (name, st, err) => onMessage?.({ type: "video-status", name, state: st, error: err }) });
 
   function build(doc) {
     const { scene, show: showCfg } = resolveLayout(doc, { fixtures: FIXTURES, patterns: PATTERNS, baseDir: project.layoutDir || "", vfs });
@@ -48,8 +53,9 @@ export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 
     if (live.wanted && live.only) state.sources.setFallback("black");
     state.remoteSrc = state.sources.add("remote", { priority: 100 });
     state.remoteMap = buildInputMap((scene.meta.inputs || []).find((i) => i.protocol === "ws")?.map || {}, scene.count);
-    state.hub = createHub({ scene, shade, fps, bus: { broadcast: (rgb) => onFrame?.(rgb) }, senders: [], sources: state.sources, t0 });
+    state.hub = createHub({ scene, shade, fps, bus: { broadcast: (rgb) => onFrame?.(rgb) }, senders: [], sources: state.sources, video: videoRegistry, t0 });
     state.hub.start();
+    video.sync(scene.meta.video || []);
     if (announce) onScene?.(scene);
   }
   const nowT = () => (state.hub ? (Date.now() - state.hub.t0) / 1000 : 0);
@@ -149,8 +155,9 @@ export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 
     get remoteLive() { return live.wanted && state.remoteSrc?.live; },
     get t() { return nowT(); },
     files: () => vfs.list(),
+    video: { list: () => video.list(), start: (name) => video.start(name), stop: (name) => video.stop(name), status: () => videoRegistry.status() },
     addFile: (name, bytes) => { vfs.put(name, bytes); project.files?.set?.(name, bytes); },
-    stop: () => { state.hub?.stop(); disconnect(true); },
+    stop: () => { state.hub?.stop(); disconnect(true); video.stopAll(); },
   };
   return api;
 }

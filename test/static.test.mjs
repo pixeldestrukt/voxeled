@@ -94,6 +94,7 @@ else {
   // 2b. a screen fixture: LEDs and a texel surface in one scene — drawn as one textured plane
   log = await run("example=screen&sim=1", "static-screen");
   ok(/VOXELED_LOCAL_HUB screen \d+ file\(s\) 6720 px/.test(log) && log.includes("VOXELED_SCREENS_READY 1 screen(s) 96x54"), "screen example: two columns + a 96×54 wall (6,720 px), the wall drawn as one plane");
+  ok(log.includes("VOXELED_VIDEO_READY poster 192x108"), "the layout's video: poster (a PNG next to the layout) is decoded in the page for the sampler");
   ok(!log.includes("VOXELED_ERROR") && !/Uncaught/.test(log), "no page errors with a screen");
   // 3. builder against the in-page hub; a save lands in IndexedDB and is reopened on the next visit
   log = await run("example=columns&build=1&select=0", "static-build");

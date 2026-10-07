@@ -324,4 +324,8 @@ ribbonChase.needs = ["fixture"]; planeSweep.needs = ["world"]; worldWipe.needs =
 spotlight.needs = ["world"]; projector.needs = ["world"]; helix.needs = ["cylinder"]; lantern.needs = ["world"]; swirl.needs = ["world"]; drops.needs = ["cylinder"];
 point.needs = ["world"]; paint.needs = ["world"]; comet.needs = ["strand"]; plasma.needs = ["strand"]; fire.needs = ["strand"]; strands.needs = ["strand"]; solid.needs = [];
 
-export const PATTERNS = { ribbonChase, worldWipe, planeSweep, normalRGB, spotlight, projector, helix, lantern, swirl, drops, point, paint, comet, plasma, fire, strands, solid, testCard };
+// The video sampler (src/video.mjs): an image source mapped onto the pixels by uv / a world box / a projector.
+import { sampler } from "./video.mjs";
+export { sampler };
+
+export const PATTERNS = { ribbonChase, worldWipe, planeSweep, normalRGB, spotlight, projector, helix, lantern, swirl, drops, point, paint, comet, plasma, fire, strands, solid, testCard, sampler };

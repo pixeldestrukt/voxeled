@@ -18,6 +18,9 @@ instances:
   - { fixture: column, name: left,  pos: [-1100, 0, 300] }
   - { fixture: column, name: right, pos: [1100, 0, 300] }
   - { fixture: wall,   name: wall,  pos: [0, 1500, -900] }   # centre 1.5 m up, 0.9 m behind the columns
+video:                                                     # image sources the `sampler` pattern reads
+  poster: { file: ../assets/poster.png }                   # a still (the page also takes JPEG/GIF/WebP, clips, the camera, a display capture)
+  # feed: { stream: true, width: 160, height: 90, port: 7001 }   # raw rgb24 frames from ffmpeg / a VJ tool (hub)
 show:
   holdS: 6
   fadeS: 2.5
@@ -28,6 +31,16 @@ show:
         - { pattern: helix, on: { space: cylinder }, params: { turns: 1, pitch: 3, speed: 0.5 } }
         - { pattern: swirl, on: { fixture: wall }, params: { arms: 3, spacingMM: 1200, twist: 0, wrap: 0 } }
     - { name: lantern carried through, pattern: lantern,    params: { path: eight, heightMM: 1200, speed: 25 } }
+    - name: poster on the wall                       # the image on the screen, texel for texel
+      layers:
+        - { pattern: solid, params: { value: 0.05 } }
+        - { pattern: sampler, on: { fixture: wall }, params: { source: poster, map: uv } }
+    - name: poster as a plane (both)                 # the same image as a wall-sized plane in the world: the columns in front sample it too
+      pattern: sampler
+      params: { source: poster, map: box, box: { pos: [0, 1500, -900], widthMM: 3200, heightMM: 1800 } }
+    - name: projected from the back of the room      # a projector at the back: what its beam lands on, faces turned away dark
+      pattern: sampler
+      params: { source: poster, map: projector, projector: { pos: [0, 1400, 4500], target: [0, 1400, -900], fovDeg: 40, aspect: 1.78 } }
     - name: test card                                # the wall's own space: align a projector
       layers:
         - { pattern: solid, params: { value: 0.08 } }

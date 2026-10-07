@@ -178,6 +178,8 @@ export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = nul
   const merge = doc.merge ? { mode: doc.merge.mode || "priority", fallback: doc.merge.fallback || "show", timeoutMs: doc.merge.timeoutMs ?? 1000 } : undefined;
   // Controls: the piece's own buttons + the state it reports (Thread's pedestals) — drawn by the viewer, spoken over the bus.
   const controls = resolveControls(doc.controls);
+  // Video: image sources the `sampler` pattern reads (src/video.mjs) — filled by the hub (files, streams) or the page (files, urls, camera, display).
+  const video = resolveVideo(doc.video);
 
   const scene = buildSceneFromLayout({
     name: doc.name || "layout",
@@ -193,10 +195,11 @@ export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = nul
       join,
       ...(merge ? { merge } : {}),
       ...(controls ? { controls } : {}),
+      ...(video.length ? { video } : {}),
     },
   });
 
-  const show = doc.show ? resolveShow(doc.show, { patterns, scene, instances, fixDefs }) : null;
+  const show = doc.show ? resolveShow(doc.show, { patterns, scene, instances, fixDefs, video }) : null;
 
   return { scene, show, resolved: instances };
 }
@@ -240,6 +243,8 @@ export function resolveInputs(list) {
 // helix on a strip is a chase) with the fix in the message, or an ERROR for a space with no
 // degrade. So "helix on a flat panel" is said out loud at apply time, not discovered on the LEDs.
 import { SPACES as SPACE_INFO } from "./patterns.mjs";
+import { resolveVideo } from "./video.mjs";
+const BLACK = [0, 0, 0];
 const BLENDS = {
   over: (a, b, o) => a + (b - a) * o,
   add: (a, b, o) => a + b * o,
@@ -247,7 +252,7 @@ const BLENDS = {
   multiply: (a, b, o) => a * (1 - o + b * o),
   screen: (a, b, o) => a + (1 - a) * b * o,
 };
-export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs = {} } = {}) {
+export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs = {}, video = [] } = {}) {
   const N = scene.pixels.length;
   const fixtureOf = (k) => instances[k]?.fixtureName;
   const spacesOf = (k) => instances[k]?.fixture?.meta?.spaces || [];
@@ -264,8 +269,9 @@ export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs 
   }
   // a pattern's needs against the fixtures of the instances it runs on: one line per (pattern, fixture)
   const warnings = [];
-  function check(make, patternName, sel, where, layered) {
-    for (const need of make.needs || []) {
+  function check(make, patternName, params, sel, where, layered) {
+    const bad = make.check?.(params, { video, scene }); if (bad) throw new Error(`${where}: ${bad}`); // a pattern's own check (the sampler's source)
+    for (const need of (typeof make.needs === "function" ? make.needs(params) : make.needs) || []) {
       const info = SPACE_INFO[need]; if (!info || info.always) continue;
       const missing = [...new Set(sel.filter((k) => !spacesOf(k).includes(need)).map(fixtureOf))];
       for (const fx of missing) {
@@ -281,11 +287,11 @@ export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs 
     const make = patterns[L.pattern];
     if (!make) throw new Error(`${where} uses unknown pattern "${L.pattern}" (have: ${Object.keys(patterns).join(", ")})`);
     const sel = select(L.on, where);
-    check(make, L.pattern, sel, where, layered);
+    check(make, L.pattern, L.params || {}, sel, where, layered);
     const blend = L.blend || "over"; if (!BLENDS[blend]) throw new Error(`${where}: blend "${blend}" — blends are ${Object.keys(BLENDS).join(", ")}`);
     const opacity = L.opacity == null ? 1 : Math.max(0, Math.min(1, +L.opacity));
     const mask = new Uint8Array(N); const on = new Set(sel); for (let i = 0; i < N; i++) if (on.has(scene.pixels[i].inst || 0)) mask[i] = 1;
-    return { pattern: L.pattern, render: make(L.params || {}), on: L.on == null ? "all" : L.on, blend, opacity, mask, count: mask.reduce((a, b) => a + b, 0), needs: make.needs || [] };
+    return { pattern: L.pattern, render: make(L.params || {}), on: L.on == null ? "all" : L.on, blend, opacity, mask, count: mask.reduce((a, b) => a + b, 0), needs: (typeof make.needs === "function" ? make.needs(L.params || {}) : make.needs) || [] };
   };
   const scenes = (showDoc.scenes || []).map((sc, k) => {
     const name = sc.name || sc.pattern || `scene ${k + 1}`;
@@ -296,7 +302,8 @@ export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs 
         let r = 0, g = 0, b = 0;
         for (const L of layers) {
           if (!L.mask[px.i]) continue;
-          const c = L.render(px, t, ctx), f = BLENDS[L.blend], o = L.opacity;
+          const c = L.render(px, t, ctx); if (!c) continue; // null = the layer has nothing here (a sampler off its image): transparent
+          const f = BLENDS[L.blend], o = L.opacity;
           r = f(r, c[0], o); g = f(g, c[1], o); b = f(b, c[2], o);
         }
         return [r < 0 ? 0 : r > 1 ? 1 : r, g < 0 ? 0 : g > 1 ? 1 : g, b < 0 ? 0 : b > 1 ? 1 : b]; // blends can overshoot; a pattern's contract is 0..1
@@ -305,7 +312,8 @@ export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs 
     }
     if (!sc.pattern) throw new Error(`scene "${name}" (#${k + 1}): needs a pattern: or layers:`);
     const L = mkLayer(sc, `scene "${name}"`, false);
-    return { name, render: L.render, needs: L.needs };
+    const r = L.render, render = (px, t, ctx) => r(px, t, ctx) || BLACK; // alone on a scene, "nothing here" is black
+    return { name, render, needs: L.needs };
   });
   return { scenes, holdS: showDoc.holdS ?? 4, fadeS: showDoc.fadeS ?? 2.5, warnings };
 }
@@ -356,6 +364,7 @@ export function collectFiles(doc) {
   for (const s of doc.structures || []) add(s.file);
   for (const p of Object.values(doc.paths || {})) if (p && !Array.isArray(p)) add(p.file);
   for (const v of doc.vantages || []) { add(v.image); if (v.cube) out.push({ cube: v.cube }); }
+  for (const v of Object.values(doc.video || {})) if (v && typeof v === "object") add(v.file); // stills / clips the sampler reads
   return out;
 }
 

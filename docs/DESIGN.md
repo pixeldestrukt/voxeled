@@ -117,9 +117,11 @@ pushes colours through a DataTexture, so the plumbing is half there. A JS-subset
 plausible later; a custom shader language is not worth it.
 
 **Video and LEDs in one scene.** Pixels and texels are both samples of the field:
-- *video into LEDs* — a `sampler` layer: source = a video, canvas, camera, screen capture (page) or
-  ffmpeg/NDI frames (hub); mapping = a projection from a camera pose (projection mapping — `projector`
-  already sketches it), fixture uv, or a world box.
+- *video into LEDs* ✅ — the `sampler` pattern (src/video.mjs): sources from a `video:` block — stills
+  (PNG/PPM on the hub, anything in the page), clips / URLs / the camera / a display capture (page), raw
+  rgb24 frames over TCP or the bus from ffmpeg or a VJ tool (hub) — mapped by fixture uv, a world box
+  (a wall-sized plane every LED samples where it falls) or a pinhole projector (faces away dark). The
+  screen example shows one poster on the wall, as a plane the columns share, and projected.
 - *screens as fixtures* ✅ — a `screen` fixture is a quad with a resolution; the layer stack renders
   it per texel (the JS path, ≤ 262k texels); the simulator draws it as one continuous plane and
   `viewer/screen.html` shows it fullscreen for a projector or a monitor (NDI later). An LED wall and
@@ -132,7 +134,7 @@ piece at true scale (the site/vantage work already uses real metres). AR on a ph
 deeper AR use is the one Phase 2 names: the phone camera as the automapper, and later solving a
 projector's pose for the video half.
 
-**Order:** spaces + validation ✅ → layers ✅ → `screen` fixture ✅ → a video sampler on the JS path → the
+**Order:** spaces + validation ✅ → layers ✅ → `screen` fixture ✅ → the video sampler ✅ → the
 GLSL backend in the page → WebXR VR → AR preview → modulators (LFO / audio / MIDI) on params and cue
 lists for the show-control mode.
 

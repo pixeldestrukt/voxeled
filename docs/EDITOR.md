@@ -153,12 +153,20 @@ spiral wraps a tube. Use them by name in `show:`; parameters in `params:`.
 | `spotlight`, `projector` | only what a virtual camera sees; project a texture through it | `orbitDegPerSec`, `angleDeg`, `elevDeg`, `fovDeg` |
 | `point`, `paint` | a torch beam from a tracked wand / phone; a brush that leaves light | see [GUIDE §3.5](GUIDE.md#35-show-and-patterns) |
 | `testCard` | a grid, border, centre cross and tinted quadrants on a screen — align a projector | `cells`, `line`, `hue` |
+| `sampler` | an image source on the pixels: `map: uv` (the fixture as the image), `box` (a plane in the world), `projector` (a beam) — [GUIDE §3.8](GUIDE.md#38-video--the-sampler) | `source`, `map`, `box`, `projector`, `filter`, `outside`, `gain` |
 
 **Your own.** A pattern is code: `(pixel, t, ctx) → [r, g, b]` in 0..1, with `pixel.p` (mm),
 `pixel.n`, `pixel.s` / `pixel.v` (0→1 along / across its fixture), `pixel.strand`, `pixel.inst`, and
 `ctx.scene`. Add it to `src/patterns.mjs` and register it in `PATTERNS`; it is then a name any layout
 can use — in the Node hub, and in the page when you host your own copy of the viewer
 (`scripts/vendor.mjs`, [STATIC.md](STATIC.md)). There is no loading of pattern files at run time yet.
+
+**Video.** Declare sources in a `video:` block — `{ file: poster.png }` (drop the file in), `{ file:
+clip.mp4 }`, `{ url }`, `{ camera: true }`, `{ display: true }` — and put a `sampler` on a scene or a
+layer. Stills and clips start on their own; the camera and a display capture start from the
+*video sources* row in the project panel (the browser asks once). A raw-frame `stream` is for the
+Node hub (ffmpeg → TCP). The `screen` example has a poster on its wall, as a plane the columns share,
+and projected from the back of the room.
 
 ## 5. Keep it, share it
 

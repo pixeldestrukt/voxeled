@@ -137,6 +137,29 @@ layer whose pattern reads a space a selected fixture lacks — the pattern degra
 strand per instance; a helix becomes a chase) — naming the fixture and the `on:` that fixes it; a
 space with no degrade is refused.
 
+## Video — image sources for the sampler
+
+```yaml
+video:
+  poster: { file: ../assets/poster.png }                              # a still (hub: PNG/PPM · page: any image)
+  feed:   { stream: true, width: 160, height: 90, port: 7001, fps: 30 }   # raw rgb24 frames: TCP, or the bus
+  clip:   { file: loop.mp4, width: 160, height: 90, fps: 24 }         # a clip (page)
+  cam:    { camera: true }                                            # the page's camera
+  desk:   { display: true }                                           # a window / screen capture (page)
+  live:   { url: https://…/x.webm }                                   # a URL the page can play
+```
+
+| field | meaning |
+|---|---|
+| `file` / `url` / `stream: true` / `camera: true` / `display: true` | the kind (one of) |
+| `width`, `height` | a stream's raw frame size (required); for the page's moving sources the sampling size (default 160×90) |
+| `port` | a stream's TCP port (optional: the bus alone, `{"type":"video","name":…}` then binary frames) |
+| `fps` | how often the page reads a moving source (default 30) |
+
+`scene.meta.video` lists the resolved sources. The `sampler` pattern reads one by name with a
+mapping: `map: uv | box | projector` ([GUIDE §3.8](GUIDE.md#38-video--the-sampler)). `collectFiles`
+includes `file` entries, so a hosted project fetches its stills next to the layout.
+
 ## Controls — the piece's own buttons and the state it reports
 
 `meta.controls` (from the layout's `controls:`) describes a physical interface as data, so any

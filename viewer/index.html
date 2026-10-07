@@ -218,6 +218,8 @@
   <div class="btns"><button id="p-new" title="a fresh layout: one panel, two scenes">new</button><button id="p-open">open</button><button id="p-saveas">save as…</button><button id="p-del">delete</button></div>
   <div class="lab" title="the models, structures, panoramas the layout refers to — drop files anywhere on the page, or add them here. They stay in this browser (IndexedDB), nothing is uploaded.">files</div>
   <div class="files" id="p-files">—</div>
+  <div class="lab" id="p-video-lab" hidden title="the layout's video: sources the sampler pattern reads — stills and clips start on their own; the camera and a display capture start on a click">video sources</div>
+  <div class="files" id="p-video" hidden></div>
   <div class="btns"><button id="p-add">＋ add files…</button><input id="p-add-input" type="file" multiple hidden /></div>
   <div class="lab" title="the layout (YAML): fixtures, instances, structures, show… — edit and apply, or use the builder (E)">layout</div>
   <textarea id="p-yaml" spellcheck="false"></textarea>
@@ -886,7 +888,14 @@ async function openProject(p) {
   await refreshProjectList();
   console.log("VOXELED_LOCAL_HUB", p.name, p.files?.size ?? 0, "file(s)", N, "px");
 }
+function renderVideo() {
+  const list = api?.video?.list?.() || [], lab = $("p-video-lab"), box = $("p-video");
+  lab.hidden = box.hidden = !list.length; if (!list.length) return;
+  box.innerHTML = list.map((v) => `<div><b title="${esc(v.kind)}${v.file ? " · " + esc(v.file) : v.url ? " · " + esc(v.url) : ""}">${esc(v.name)}</b><span>${v.width && v.height ? `${v.width}×${v.height} · ` : ""}${esc(v.error || v.state)}${["camera", "display"].includes(v.kind) ? ` <button data-v="${esc(v.name)}" style="padding:1px 6px">${v.state === "playing" || v.state === "live" ? "stop" : "start"}</button>` : ""}</span></div>`).join("");
+  for (const b of box.querySelectorAll("button[data-v]")) b.addEventListener("click", async () => { const v = list.find((x) => x.name === b.dataset.v); if (v.state === "playing" || v.state === "live") api.video.stop(v.name); else await api.video.start(v.name); renderVideo(); });
+}
 function renderFiles() {
+  renderVideo();
   const names = api?.files?.() || [];
   $("p-files").innerHTML = names.length ? names.map((n) => `<div><b title="${n}">${n}</b><span>${(project.files.get(n)?.length / 1024).toFixed(0)} KB</span></div>`).join("") : "— (drop STL / GLB / OBJ / .vxl.json / images here)";
 }
@@ -1135,6 +1144,7 @@ function ctlPress(pi, b, pressed) {
 const pathGet = (o, p) => p.split(".").reduce((x, k) => (x == null ? undefined : x[k]), o);
 const showVal = (v) => (v == null ? "–" : typeof v === "object" ? (Array.isArray(v) ? v.join(" + ") : Object.entries(v).filter(([, x]) => x).map(([k]) => k.toUpperCase()).join(" + ") || "–") : String(v));
 function onRemoteMessage(m) {
+  if (m.type === "video-status") { renderVideo(); return; }
   if (!ctlStatus || m.type !== ctlStatus.type) return;
   ctlStatus.fields.forEach((f, i) => { const v = pathGet(m, f.path); const el = ctlStatus.els[i]; el.textContent = showVal(v); el.className = v == null ? "off" : ""; });
   const line = ctlStatus.fields.map((f, i) => `${f.label}=${ctlStatus.els[i].textContent}`).join(" · ");

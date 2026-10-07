@@ -28,6 +28,9 @@ import { createPSNInput, psnToPose } from "../../src/input/psn.mjs";
 import { qrEncode, qrToAscii } from "../../src/qr.mjs";
 import { structureRoutes } from "../../src/structures.mjs";
 import { vantageRoutes } from "../../src/site.mjs";
+import { createVideoRegistry, decodePPM } from "../../src/video.mjs";
+import { decodeImage } from "../../src/io/png.mjs";
+import { createVideoStream } from "../../src/input/video-stream.mjs";
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PORT = +(process.env.PORT || 8080);
@@ -61,6 +64,31 @@ if (process.env.DDP) envSenders.push(createDDPSender({ host: process.env.DDP }))
 // ── the live layout: doc → scene + show + hub, rebuilt on every edit ──────────────
 const state = { doc: null, header: "", scene: null, show: null, hub: null, dispatcher: null, inputs: null, mover: null, psn: [], lastWritten: null };
 const poses = createPoses(); // tracked things (wands, phones, PSN tags) — survives layout reloads
+// Video sources for the sampler pattern (the layout's `video:`): stills decoded once, raw-frame
+// streams over TCP (ffmpeg) or the bus; survives layout reloads — a stream stays open across edits.
+const video = createVideoRegistry();
+const videoStreams = new Map(), videoSockets = new Map(); // name → stream · bus socket → stream name
+function syncVideo(list = []) {
+  const want = new Map(list.map((v) => [v.name, v]));
+  for (const [name, st] of videoStreams) if (!want.has(name) || JSON.stringify(want.get(name)) !== JSON.stringify(st.spec)) { st.close(); videoStreams.delete(name); video.clear(name); }
+  for (const spec of list) {
+    if (videoStreams.has(spec.name)) continue;
+    if (spec.kind === "file") {
+      try { const f = decodeImage(spec.file, readFileSync(path.resolve(path.dirname(layoutPath), spec.file)), { decodePPM }); video.set(spec.name, f); videoStreams.set(spec.name, { spec, close() {} }); console.log(`  video:   ${spec.name} ← ${spec.file} (${f.width}×${f.height})`); }
+      catch (e) { console.warn(`  video:   ${spec.name}: ${e.message}`); }
+    } else if (spec.kind === "stream") {
+      const st = createVideoStream({ name: spec.name, width: spec.width, height: spec.height, port: spec.port, registry: video, onStatus: (x) => console.log(`  video:   ${x.name}: ${x.clients} sender(s)${x.from ? " · " + x.from : ""}`) });
+      st.spec = spec; videoStreams.set(spec.name, st);
+      console.log(`  video:   ${spec.name} ← raw rgb24 ${spec.width}×${spec.height}${spec.port ? ` on tcp :${spec.port}` : ""} or the bus ({"type":"video","name":"${spec.name}"} then binary frames)\n           e.g. ffmpeg -re -stream_loop -1 -i clip.mp4 -vf scale=${spec.width}:${spec.height} -f rawvideo -pix_fmt rgb24 tcp://<hub>:${spec.port || "<port>"}`);
+    } else { videoStreams.set(spec.name, { spec, close() {} }); console.log(`  video:   ${spec.name}: ${spec.kind} is a page source — the hub shows it as "off"`); }
+  }
+}
+// the bus as a video carrier: a socket says {"type":"video","name":…}, then its binary messages are frames
+function handleVideoMessage(m) {
+  if (m.text) { let j; try { j = JSON.parse(m.text); } catch { return false; } if (j?.type !== "video") return false; const st = videoStreams.get(j.name); if (st?.feed) { videoSockets.set(m.socket, j.name); m.socket.on("close", () => videoSockets.delete(m.socket)); } else bus.sendText(m.socket, { type: "error", of: "video", error: `no stream "${j.name}" (streams: ${[...videoStreams].filter(([, s]) => s.feed).map(([n]) => n).join(", ") || "none"})` }); return true; }
+  if (m.binary && videoSockets.has(m.socket)) { videoStreams.get(videoSockets.get(m.socket))?.feed(m.binary); return true; }
+  return false;
+}
 const routes = []; // mutated in place on every apply — the bus reads it per request
 const senders = () => (state.dispatcher ? [...envSenders, state.dispatcher] : envSenders);
 
@@ -108,7 +136,8 @@ function apply(doc, { announce = true } = {}) {
     ...structRoutes,
     ...vantRoutes,
   );
-  state.hub = createHub({ scene, shade, fps: 30, bus, senders: senders(), sources: state.inputs?.sources || null, poses, t0 });
+  syncVideo(scene.meta.video || []);
+  state.hub = createHub({ scene, shade, fps: 30, bus, senders: senders(), sources: state.inputs?.sources || null, poses, video, t0 });
   state.hub.start();
   // Moving fixtures: instances with `track:` follow a tracker's pose (src/poses.mjs).
   state.mover = createMover({ scene, resolved });
@@ -277,7 +306,7 @@ function layoutHandler(req, res, params) {
 }
 
 // ── boot ─────────────────────────────────────────────────────────────────────────
-const bus = createBus({ port: PORT, staticDir: path.join(HERE, "../../viewer"), routes, onMessage: (m) => { if (m.text && (handleJoinText(m.text, m.socket) || handlePoseText(m.text))) return; state.inputs?.onMessage(m); } }); // pages push frames, poses and control in through the same socket
+const bus = createBus({ port: PORT, staticDir: path.join(HERE, "../../viewer"), routes, onMessage: (m) => { if (handleVideoMessage(m)) return; if (m.text && (handleJoinText(m.text, m.socket) || handlePoseText(m.text))) return; state.inputs?.onMessage(m); } }); // pages push frames, poses and control in through the same socket
 bus.server.on("error", (e) => {
   if (e.code === "EADDRINUSE") { console.error(`\n✗ port ${PORT} is already in use — another demo is likely running. Stop it, or run with PORT=<n>.`); process.exit(1); }
   throw e;

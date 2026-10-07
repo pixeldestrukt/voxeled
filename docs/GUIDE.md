@@ -246,6 +246,51 @@ stops for `timeoutMs` hands its pixels back; pixels nobody covers run the intern
 [interop/protocols.md](interop/protocols.md#inputs-and-merge--several-streams-driving-one-piece).
 The HUD's *Inputs* row and `/inputs` show what's live.
 
+### 3.8 Video — the sampler
+
+An image on the LEDs: a poster, a clip, a camera, a window, a raw-frame feed from ffmpeg or a VJ
+tool. Declare the sources in `video:`, then use the `sampler` pattern (a scene or a layer) with a
+**mapping** — the same image lands on a wall of texels, on columns standing in front of it, or on
+whatever a projector's beam would hit:
+
+```yaml
+video:
+  poster: { file: ../assets/poster.png }                           # a still: PNG / PPM on the hub; anything in the page
+  clip:   { file: loop.mp4, fps: 24, width: 160, height: 90 }      # a video file (page); the hub takes clips as a stream
+  feed:   { stream: true, width: 160, height: 90, port: 7001 }     # raw rgb24 frames over TCP, or on the bus
+  cam:    { camera: true }                                         # the page's camera (a button in the project panel)
+  desk:   { display: true }                                        # a window / screen capture (page, a click)
+show:
+  scenes:
+    - { name: on the wall, layers: [{ pattern: sampler, on: { fixture: wall }, params: { source: poster, map: uv } }] }
+    - { name: as a plane, pattern: sampler, params: { source: poster, map: box, box: { pos: [0, 1500, -900], widthMM: 3200, heightMM: 1800 } } }
+    - { name: projected, pattern: sampler, params: { source: feed, map: projector, projector: { pos: [0, 1400, 4500], target: [0, 1400, -900], fovDeg: 40, aspect: 1.78 } } }
+```
+
+| `map` | the pixel samples the image at | reads |
+|---|---|---|
+| `uv` | its fixture's `s` / `v` — on a `screen` fixture that is the image, texel for texel | fixture |
+| `box` | where it falls on a plane in the world: `box: { pos, rotDeg, widthMM, heightMM }`, facing +Z like a screen fixture (copy a screen's placement and the columns in front show the same picture at the same real place) | world |
+| `projector` | where a pinhole projector would land it: `projector: { pos, target, fovDeg, aspect }`; faces turned away from the lens stay dark (`facing: false` to light them anyway). No occlusion — `projector` the pattern has the z-tested version | world |
+
+`filter: linear | nearest`, `outside: black | clamp | repeat` (what lies beyond the image's edge),
+`gain`, `off` (the colour where nothing lands). A source nobody has filled samples as `off` — a
+dark wall means the feed is silent, not the page. Applying a layout refuses a sampler whose
+`source` isn't in `video:`.
+
+**Feeding the hub.** Stills decode once (PNG, PPM; `ffmpeg -i x.jpg x.png` for the rest). Moving
+pictures reach it as a **stream** of raw frames, width × height × 3 bytes each, back to back:
+
+```bash
+ffmpeg -re -stream_loop -1 -i clip.mp4 -vf scale=160:90 -f rawvideo -pix_fmt rgb24 tcp://<hub>:7001
+ffmpeg -f v4l2 -i /dev/video0 -vf scale=160:90 -f rawvideo -pix_fmt rgb24 tcp://<hub>:7001   # a camera
+```
+(Resolume / TouchDesigner: Spout/Syphon or NDI → ffmpeg → the same.) The bus carries them too:
+send `{"type":"video","name":"feed"}` on a socket, then binary frames. The hub prints each
+source's line at start. **In the page** (the static viewer), files and URLs start on their own;
+the camera and a display capture start from the project panel's *video sources* row — the
+browser asks once.
+
 ## 4. Getting geometry in
 
 The principle: **bake in the tool, one baked interchange.** Every on-ramp produces the same fixture —

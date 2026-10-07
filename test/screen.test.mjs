@@ -51,9 +51,9 @@ ok(SPACES.screen && SPACES.screen.degrade && PATTERNS.testCard.needs.includes("s
   ok(wall?.screen && wall.screen.cols === 96 && wall.screen.rows === 54 && wall.screen.widthMM === 3200 && wall.screen.heightMM === 1800, "the wall instance carries screen meta (cols, rows, mm)");
   const k = scene.meta.instances.indexOf(wall), first = scene.pixels.findIndex((p) => p.inst === k);
   ok(first === 1536 && scene.pixels.slice(first, first + 96 * 54).every((p) => p.inst === k), "the wall's texels are one contiguous run on the bus (offset 1536)");
-  ok(show.scenes.length === 4 && show.warnings.length === 0, `four scenes, no space warnings (${show.warnings.join(" | ") || "clean"})`);
+  ok(show.scenes.length === 7 && show.warnings.length === 0, `seven scenes, no space warnings (${show.warnings.join(" | ") || "clean"})`);
   const hub = createHub({ scene, shade: show.scenes[0].render, fps: 30 });
-  const sweep = show.scenes[0].render, card = show.scenes[3].render;
+  const sweep = show.scenes[0].render, card = show.scenes.find((x) => x.name === "test card").render;
   // the plane of light is at the same world height on a column and on the wall: world space is shared
   const yOf = (px) => px.p[1];
   const colPx = scene.pixels.find((p) => p.inst === 0 && Math.abs(yOf(p) - 800) < 6), wallPx = scene.pixels.find((p) => p.inst === k && Math.abs(yOf(p) - 800) < 20 && Math.abs(p.p[0]) < 20);
