@@ -83,12 +83,13 @@ else {
     c.on("close", () => { clearTimeout(t); res(log); });
   });
   // 1. no hub, no params: the page notices there is no scene.json and runs the in-page hub on the columns example
-  let log = await run("sim=1&help=1&gpucheck=1&xrtest=1");
+  let log = await run("sim=1&help=1&gpucheck=1&xrtest=1&walk=1");
   ok(log.includes("VOXELED_NO_HUB"), "a plain static server has no scene.json → the page switches to static mode by itself");
   ok(/VOXELED_LOCAL_HUB columns \d+ file\(s\) 6144 px/.test(log), "in-page hub built the columns example (fetched next to the page): 8 columns, 6,144 px");
   ok(log.includes("VOXELED_READY") && log.includes("VOXELED_SIM_READY") && !log.includes("VOXELED_ERROR"), "viewer + simulator ready, no errors");
   ok(log.includes("VOXELED_HELP"), "?help=1 opens the editor help panel");
   ok(/VOXELED_XR (none|\s*unsupported|vr|ar)/.test(log) && !/VOXELED_XR_ERROR/.test(log), "WebXR is detected without errors (headless: none/unsupported → no vr/ar buttons)");
+  ok(/VOXELED_WALK 150 1600 50/.test(log), "?walk=1: first person starts at the piece's floor centre, eye at 1.6 m (the VR placement, on a screen)");
   ok(/VOXELED_XR_TEST scale 0\.001 pos -0\.150 0\.000 -0\.050/.test(log), "XR placement: the columns' mm world becomes metres, its floor centre (150, 50 mm) brought to the user, who stands inside a 2.95 m piece");
   // the GPU backend: every columns scene has a GLSL twin; the two paths agree to within a few LSB
   ok(/VOXELED_GPU 7\/7 scene\(s\) on the GPU/.test(log), "GPU: all seven columns scenes compiled to one shader");

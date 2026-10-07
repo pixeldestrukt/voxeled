@@ -18,6 +18,7 @@ nothing is uploaded; *export* a bundle to move it.
 | **builder** | *builder* button · **E** | place things by hand: select an instance, move/rotate, duplicate, array, emitter, output patch, add instances, new fixture from a file. |
 | **help** | *help* button · **?** | this, condensed. |
 | the view | drag · scroll | orbit and zoom. **S** simulator, **B** bloom, **M** model, **N** normals, **R** ropes, **O** orbit, **V** stand at a vantage, **[ ]** crossfade, **A** auto. |
+| **walk** | the button · **F** · `?walk=1` | first person on this screen: WASD / arrows + mouse, or drag + a stick on a phone; *gyro* and a cardboard *stereo* split. The headset demo without a headset. |
 | **vr** · **ar** | the buttons (where the browser has WebXR) · **X** | walk the piece at true scale in a headset; on a phone, stand it on your floor (tap where the ring lands). `?xrscale=0.1` for a tabletop model. |
 
 On a phone the HUD starts folded and the panels are sheets along the bottom.

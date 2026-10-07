@@ -573,7 +573,13 @@ opens the rest and folds again after a pick, and the controls fold to their head
 | `sim=1`, `bloom=0`, `ropes=0`, `normals=1`, `model=opaque/hidden`, `grid=0/1`, `bg=0c0c0c` | look |
 | `ws=wss://…` | connect the live socket on load; `live=only` (bar/embed default: only what arrives is shown, dark otherwise — a dark piece means the sender is silent) or `live=merge` (over the show) |
 | `controls=0`, `controls=min` | don't draw the piece's control panels / start them folded to their header (a phone's default) |
+| `walk=1`, `stereo=1` | start in **walk** (first person on this screen — the VR placement without a headset; F toggles); side-by-side stereo for a cardboard viewer |
 | `xrscale=0.1`, `xrdist=2` | WebXR: the piece's scale in a headset / on a phone (1 = true size; 0.1 a tabletop model) and, in VR, how far back from its centre you start (default: inside it if it is big, else just outside) |
+
+**Walk — the demo without a headset.** *walk* (or **F**, or `?walk=1`) is first person on any screen: the eye at
+1.6 m where VR would start you, WASD / arrows and the mouse (a click locks it) on a desktop; on a phone, drag to
+look and the left third of the screen is a stick, *gyro* makes the phone a window on the piece (iOS asks once),
+*stereo* splits the view for a cardboard viewer. `?xrdist` and `?xrscale` apply here too.
 
 **In a headset, on a phone.** Where the browser has WebXR, the bar (and the HUD) gain **vr** and **ar**: *vr* walks the
 piece at true scale — a trigger steps the show, the left stick walks, the right one snap-turns — and *ar* on a phone

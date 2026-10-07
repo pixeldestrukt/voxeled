@@ -108,6 +108,13 @@
     #livehint { top: 20px; right: 12px; } #livehint #l-text { display: none; } #livehint .dot { margin: 0; } /* the dot alone; the banner and the live button say the rest */
     #livebanner { top: auto; bottom: 84px; width: calc(100vw - 48px); padding: 10px 14px; }
   }
+  /* walk: first-person on any screen (the VR placement without the headset) */
+  #walkhint { position: fixed; z-index: 11; left: 50%; bottom: 14px; transform: translateX(-50%); display: none; gap: 10px; align-items: center; padding: 8px 12px; border-radius: 10px; background: rgba(10,12,20,.75); color: #8da0c2; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }
+  body.walk #walkhint { display: flex; } body.walk #bar { bottom: 52px; } body.walk #help { display: none; }
+  #walkhint button { padding: 3px 8px; font-size: 11px; } #walkhint button.on { background: var(--pink); border-color: var(--pink); color: #1a0410; }
+  #stick { position: fixed; z-index: 11; width: 110px; height: 110px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); display: none; pointer-events: none; transform: translate(-50%, -50%); }
+  #stick i { position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.35); transform: translate(-50%, -50%); }
+  @media (max-width: 700px) { #walkhint { max-width: calc(100vw - 24px); white-space: normal; text-align: center; justify-content: center; flex-wrap: wrap; } }
   /* the piece's own controls (layout controls:) — button panels + reported state */
   #ctl { top: 14px; left: clamp(12px, 4vw, 40px); display: none; flex-direction: column; gap: 10px; max-width: calc(100vw - 24px); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; user-select: none; -webkit-tap-highlight-color: transparent; }
   body.ctl #ctl { display: flex; } body.bar:not(.ctl) #ctl { display: none; }
@@ -147,7 +154,7 @@
   <hr/>
   <div class="btns" id="view" style="margin-top:0">
     <button id="v-sim" title="S">sim</button><button id="v-bloom" title="B">bloom</button>
-    <button id="v-model" title="M">model</button><button id="v-normals" title="N">normals</button><button id="v-build" title="E">builder</button><button id="v-help" title="? — how to work in the editor">help</button><button id="v-vr" title="X — walk the piece in a headset (WebXR)" hidden>vr</button><button id="v-ar" title="put the piece on your floor (WebXR AR)" hidden>ar</button><button id="v-stand" title="V — stand at a vantage (site context)" hidden>stand</button><button id="v-proj" title="P — this page's project: layout + the files you dropped in (kept in this browser)" hidden>project</button>
+    <button id="v-model" title="M">model</button><button id="v-normals" title="N">normals</button><button id="v-build" title="E">builder</button><button id="v-help" title="? — how to work in the editor">help</button><button id="v-walk" title="F — first person: walk the piece on this screen (a demo without a headset)">walk</button><button id="v-vr" title="X — walk the piece in a headset (WebXR)" hidden>vr</button><button id="v-ar" title="put the piece on your floor (WebXR AR)" hidden>ar</button><button id="v-stand" title="V — stand at a vantage (site context)" hidden>stand</button><button id="v-proj" title="P — this page's project: layout + the files you dropped in (kept in this browser)" hidden>project</button>
   </div>
   <hr/>
   <div id="xf">
@@ -249,9 +256,9 @@
   <h2>patterns</h2>
   <p>Functions of each LED's real position and normal: <code>ribbonChase planeSweep worldWipe helix lantern swirl drops comet plasma fire strands solid normalRGB spotlight projector</code>. Your own go in <code>src/patterns.mjs</code> (the Node hub, or your own copy of this page).</p>
   <h2>keys</h2>
-  <p><kbd>H</kbd> hud · <kbd>P</kbd> project · <kbd>E</kbd> builder · <kbd>S</kbd> sim · <kbd>B</kbd> bloom · <kbd>M</kbd> model · <kbd>N</kbd> normals · <kbd>R</kbd> ropes · <kbd>O</kbd> orbit · <kbd>V</kbd> stand · <kbd>X</kbd> vr · <kbd>?</kbd> this</p>
-  <h2>headset · phone</h2>
-  <p>With WebXR, <b>vr</b> walks the piece at true scale (trigger = next scene, left stick walks, right stick turns) and <b>ar</b> on a phone stands it on your floor (tap where the ring lands; tap again to move it). <code>?xrscale=0.1</code> makes a 1:10 model for a table.</p>
+  <p><kbd>H</kbd> hud · <kbd>P</kbd> project · <kbd>E</kbd> builder · <kbd>S</kbd> sim · <kbd>B</kbd> bloom · <kbd>M</kbd> model · <kbd>N</kbd> normals · <kbd>R</kbd> ropes · <kbd>O</kbd> orbit · <kbd>V</kbd> stand · <kbd>F</kbd> walk · <kbd>X</kbd> vr · <kbd>?</kbd> this</p>
+  <h2>walk · headset · phone</h2>
+  <p><b>walk</b> (<kbd>F</kbd>) is first person on this screen — the VR placement without the headset: WASD / arrows and the mouse (click to lock it), or on a phone drag to look and the left side is a stick; <b>gyro</b> makes the phone a window on the piece, <b>stereo</b> splits the view for a cardboard viewer. With WebXR, <b>vr</b> walks the piece at true scale (trigger = next scene, left stick walks, right stick turns) and <b>ar</b> on a phone stands it on your floor (tap where the ring lands; tap again to move it). <code>?xrscale=0.1</code> makes a 1:10 model for a table.</p>
   <p><a href="https://pixeldestrukt.github.io/voxeled/docs/EDITOR.html" target="_blank" rel="noopener">the full editor guide ↗</a> · <a href="https://pixeldestrukt.github.io/voxeled/docs/START.html" target="_blank" rel="noopener">getting started ↗</a> · <a href="https://pixeldestrukt.github.io/voxeled/docs/GUIDE.html" target="_blank" rel="noopener">authoring guide ↗</a></p>
 </div>
 <div id="drop">drop files to add them to the project · a .yaml becomes the layout · a bundle .json opens a project</div>
@@ -267,6 +274,8 @@
   <small id="l-help">Raw RGB frames (this piece's pixel order) or Art-Net packets, one binary message per frame — a voxeled hub's <code>/bus</code>, or a bridge next to the controller. While connected, only what arrives is shown; pick a pattern to leave live mode.</small>
 </div>
 <div id="ctl" class="panel"></div>
+<div id="walkhint"><span id="walktext">w a s d · arrows walk · mouse looks</span><button id="walk-gyro" hidden>gyro</button><button id="walk-stereo">stereo</button><button id="walk-exit">exit · F</button></div>
+<div id="stick"><i></i></div>
 
 <script type="module">
 import * as THREE from "three";
@@ -345,6 +354,7 @@ async function xrStart(mode) {
       ? { requiredFeatures: ["hit-test", "local-floor"], optionalFeatures: ["dom-overlay"], domOverlay: { root: document.body } }
       : { optionalFeatures: ["local-floor", "bounded-floor"] });
   } catch (e) { console.warn("VOXELED_XR_ERROR", e.message); return; }
+  walkStop();
   xr.mode = mode; xr.saved = { near: camera.near, far: camera.far, bg: scene3.background, grid: groundGrid?.visible, auto: controls.autoRotate, orbit: controls.enabled };
   camera.near = 0.02; camera.far = 2000; controls.autoRotate = false; controls.enabled = false; // metres now
   if (mode === "ar") { scene3.background = null; if (groundGrid) groundGrid.visible = false; world.visible = false; xr.placed = false; }
@@ -392,6 +402,96 @@ function xrFrame(frame, now) {
   }
 }
 xrDetect();
+
+// ── walk: first-person on any screen — the VR placement, through a monitor or a phone ────────
+// For a demo without a headset: the eye at 1.6 m at the same spot VR would start you, mouse-look
+// (pointer lock) + WASD / arrows on a desktop; on a phone, drag to look, the left third of the screen
+// is a stick to walk, and *gyro* turns the phone into a window on the piece (the browser asks on
+// iOS). *stereo* renders side by side for a cardboard viewer. F toggles; ?walk=1 starts in it.
+const walk = { on: false, yaw: 0, pitch: 0, eyeMM: 1600, keys: new Set(), stick: null, drag: null, gyro: null, gyroQ: null, stereo: qsOn("stereo", false), lastT: 0, pos: new THREE.Vector3(), saved: null, camL: null, camR: null };
+function walkStart() {
+  if (walk.on || !scene) return;
+  if (standing != null) leaveVantage();
+  const F = floorFrame(), dist = xr.dist != null ? xr.dist * 1000 : (F.r > 1500 ? 0 : F.r + 1000);
+  walk.pos.set(F.cx, walk.eyeMM, F.cz + dist); walk.yaw = 0; walk.pitch = 0;
+  walk.saved = { auto: controls.autoRotate, pos: camera.position.clone(), target: controls.target.clone(), fov: camera.fov };
+  controls.enabled = false; controls.autoRotate = false; camera.fov = 70; camera.updateProjectionMatrix();
+  walk.on = true; document.body.classList.add("walk"); $("walk-gyro").hidden = !("DeviceOrientationEvent" in window) || !matchMedia("(pointer: coarse)").matches;
+  $("walktext").textContent = matchMedia("(pointer: coarse)").matches ? "drag to look · left side: stick to walk" : "w a s d · arrows walk · click, then the mouse looks";
+  walkApply(); syncBar(); console.log("VOXELED_WALK", walk.pos.x.toFixed(0), walk.pos.y.toFixed(0), walk.pos.z.toFixed(0));
+}
+function walkStop() {
+  if (!walk.on) return;
+  walk.on = false; walk.keys.clear(); walk.stick = null; walk.drag = null; walkGyro(false);
+  if (document.pointerLockElement) document.exitPointerLock();
+  const sv = walk.saved; camera.position.copy(sv.pos); controls.target.copy(sv.target); camera.fov = sv.fov; camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  controls.enabled = true; controls.autoRotate = sv.auto; controls.update();
+  document.body.classList.remove("walk"); $("stick").style.display = "none"; syncBar();
+}
+const walkToggle = () => (walk.on ? walkStop() : walkStart());
+function walkApply() {
+  camera.position.copy(walk.pos);
+  if (walk.gyroQ) camera.quaternion.copy(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), walk.yaw).multiply(walk.gyroQ));
+  else camera.quaternion.setFromEuler(new THREE.Euler(walk.pitch, walk.yaw, 0, "YXZ"));
+}
+function walkUpdate(now) {
+  const dt = walk.lastT ? Math.min(0.1, (now - walk.lastT) / 1000) : 0; walk.lastT = now;
+  const k = walk.keys; let fx = 0, fz = 0;
+  if (k.has("w") || k.has("arrowup")) fz -= 1; if (k.has("s") || k.has("arrowdown")) fz += 1;
+  if (k.has("a") || k.has("arrowleft")) fx -= 1; if (k.has("d") || k.has("arrowright")) fx += 1;
+  if (walk.stick) { fx += walk.stick.dx; fz += walk.stick.dy; }
+  walkApply(); // the look first, so a step goes where the eye points this frame
+  if (fx || fz) {
+    const speed = (k.has("shift") ? 3000 : 1500) * dt, fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion); fwd.y = 0; fwd.normalize();
+    const right = new THREE.Vector3(fwd.z, 0, -fwd.x);
+    walk.pos.addScaledVector(fwd, -fz * speed).addScaledVector(right, fx * speed);
+    camera.position.copy(walk.pos);
+  }
+}
+// keys: captured ahead of the view keys (S would toggle the simulator) while walking
+addEventListener("keydown", (e) => { if (!walk.on || ["INPUT", "SELECT", "TEXTAREA"].includes(e.target.tagName)) return; const k = e.key.toLowerCase(); if (["w", "a", "s", "d", "shift", "arrowup", "arrowdown", "arrowleft", "arrowright"].includes(k)) { walk.keys.add(k); e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+addEventListener("keyup", (e) => { walk.keys.delete(e.key.toLowerCase()); }, true);
+addEventListener("blur", () => walk.keys.clear());
+// the mouse: a click locks the pointer, then it looks
+renderer.domElement.addEventListener("click", () => { if (walk.on && !matchMedia("(pointer: coarse)").matches && !document.pointerLockElement) renderer.domElement.requestPointerLock?.(); });
+addEventListener("mousemove", (e) => { if (!walk.on || document.pointerLockElement !== renderer.domElement) return; walk.yaw -= e.movementX * 0.0025; walk.pitch = Math.max(-1.4, Math.min(1.4, walk.pitch - e.movementY * 0.0025)); });
+// touch: the left third is a stick (walk), the rest looks
+renderer.domElement.addEventListener("pointerdown", (e) => {
+  if (!walk.on || e.pointerType !== "touch") return;
+  if (e.clientX < innerWidth * 0.35 && !walk.stick) { walk.stick = { id: e.pointerId, x0: e.clientX, y0: e.clientY, dx: 0, dy: 0 }; const st = $("stick"); st.style.display = "block"; st.style.left = e.clientX + "px"; st.style.top = e.clientY + "px"; st.firstElementChild.style.transform = "translate(-50%, -50%)"; }
+  else if (!walk.drag) walk.drag = { id: e.pointerId, x: e.clientX, y: e.clientY, yaw: walk.yaw, pitch: walk.pitch };
+});
+addEventListener("pointermove", (e) => {
+  if (!walk.on) return;
+  if (walk.stick && e.pointerId === walk.stick.id) { const dx = e.clientX - walk.stick.x0, dy = e.clientY - walk.stick.y0, r = Math.min(50, Math.hypot(dx, dy)), a = Math.atan2(dy, dx); walk.stick.dx = (r / 50) * Math.cos(a); walk.stick.dy = (r / 50) * Math.sin(a); $("stick").firstElementChild.style.transform = `translate(calc(-50% + ${r * Math.cos(a)}px), calc(-50% + ${r * Math.sin(a)}px))`; }
+  else if (walk.drag && e.pointerId === walk.drag.id) { walk.yaw = walk.drag.yaw + (e.clientX - walk.drag.x) * 0.006; walk.pitch = Math.max(-1.4, Math.min(1.4, walk.drag.pitch + (e.clientY - walk.drag.y) * 0.006)); }
+});
+for (const ev of ["pointerup", "pointercancel"]) addEventListener(ev, (e) => { if (walk.stick && e.pointerId === walk.stick.id) { walk.stick = null; $("stick").style.display = "none"; } if (walk.drag && e.pointerId === walk.drag.id) walk.drag = null; });
+// gyro: the phone as a window on the piece (DeviceOrientationControls' maths)
+async function walkGyro(on) {
+  if (!on) { if (walk.gyro) removeEventListener("deviceorientation", walk.gyro); walk.gyro = null; walk.gyroQ = null; $("walk-gyro").classList.remove("on"); return; }
+  try { if (typeof DeviceOrientationEvent?.requestPermission === "function" && (await DeviceOrientationEvent.requestPermission()) !== "granted") return; } catch { return; }
+  const zee = new THREE.Vector3(0, 0, 1), q1 = new THREE.Quaternion(-Math.SQRT1_2, 0, 0, Math.SQRT1_2), q0 = new THREE.Quaternion(), euler = new THREE.Euler(), D2R = Math.PI / 180;
+  walk.gyro = (e) => { if (e.alpha == null) return; const orient = (screen.orientation?.angle || 0) * D2R; euler.set(e.beta * D2R, e.alpha * D2R, -e.gamma * D2R, "YXZ"); const q = new THREE.Quaternion().setFromEuler(euler); q.multiply(q1); q.multiply(q0.setFromAxisAngle(zee, -orient)); walk.gyroQ = q; };
+  addEventListener("deviceorientation", walk.gyro); $("walk-gyro").classList.add("on");
+}
+$("walk-gyro").addEventListener("click", () => walkGyro(!walk.gyro));
+$("walk-stereo").addEventListener("click", () => { walk.stereo = !walk.stereo; $("walk-stereo").classList.toggle("on", walk.stereo); if (!walk.stereo) { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setScissorTest(false); renderer.setViewport(0, 0, innerWidth, innerHeight); } });
+$("walk-stereo").classList.toggle("on", walk.stereo);
+$("walk-exit").addEventListener("click", walkStop);
+// side by side for a cardboard viewer: two eyes 64 mm apart, half the screen each, no composer
+function renderStereo() {
+  const w = innerWidth, h = innerHeight, half = Math.floor(w / 2);
+  if (!walk.camL) { walk.camL = camera.clone(); walk.camR = camera.clone(); }
+  for (const [cam, side] of [[walk.camL, -1], [walk.camR, 1]]) {
+    cam.fov = camera.fov; cam.aspect = half / h; cam.near = camera.near; cam.far = camera.far; cam.updateProjectionMatrix();
+    cam.position.copy(camera.position).addScaledVector(new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion), side * 32); cam.quaternion.copy(camera.quaternion);
+  }
+  renderer.setScissorTest(true);
+  renderer.setViewport(0, 0, half, h); renderer.setScissor(0, 0, half, h); renderer.render(scene3, walk.camL);
+  renderer.setViewport(half, 0, w - half, h); renderer.setScissor(half, 0, w - half, h); renderer.render(scene3, walk.camR);
+}
+if (qsOn("walk", false)) addEventListener("voxeled:scene", () => walkStart(), { once: true });
 // ?xrtest=1: exercise the placement maths without a session (headless gate) — place, log, restore
 if (qsOn("xrtest", false)) addEventListener("voxeled:scene", () => { xrPlace(); const p = world.position; console.log("VOXELED_XR_TEST", "scale", world.scale.x, "pos", p.x.toFixed(3), p.y.toFixed(3), p.z.toFixed(3)); xr.saved = {}; xrEnd(); }, { once: true });
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -1108,6 +1208,7 @@ function buildBar(sc) {
     ["ropes", () => simOn && ropesOn, () => { ropesOn = !ropesOn; for (let k = 0; k < instTf.length; k++) placeInstance(k); applyMode(); }, ropes.length > 0],
     ["model", () => modelMode !== 2, () => { modelMode = (modelMode + 1) % 3; applyMode(); }, (sc.meta?.structures?.length || 0) > 0],
     ["normals", () => normalsOn, () => { normalsOn = !normalsOn; applyMode(); }, true],
+    ["walk", () => walk.on, () => walkToggle(), true],
     ["vr", () => xr.mode === "vr", () => xrStart("vr"), xr.support.vr],
     ["ar", () => xr.mode === "ar", () => xrStart("ar"), xr.support.ar],
   ];
@@ -1139,6 +1240,7 @@ function syncBar() {
   if (t.model) t.model.classList.toggle("on", modelMode !== 2);
   if (t.normals) t.normals.classList.toggle("on", normalsOn);
   if (t.vr) t.vr.classList.toggle("on", xr.mode === "vr"); if (t.ar) t.ar.classList.toggle("on", xr.mode === "ar");
+  if (t.walk) t.walk.classList.toggle("on", walk.on); $("v-walk").classList.toggle("on", walk.on);
   $("v-vr").classList.toggle("on", xr.mode === "vr"); $("v-ar").classList.toggle("on", xr.mode === "ar");
   document.body.classList.toggle("live", !!api?.live?.wanted);
 }
@@ -1505,6 +1607,7 @@ $("v-build").addEventListener("click", () => toggleBuilder(!buildOn));
 $("b-close").addEventListener("click", () => toggleBuilder(false));
 function toggleHelp(on = $("helpp").hidden) { $("helpp").hidden = !on; $("v-help").classList.toggle("on", on); if (on) console.log("VOXELED_HELP"); }
 $("v-help").addEventListener("click", () => toggleHelp());
+$("v-walk").addEventListener("click", () => walkToggle());
 $("v-vr").addEventListener("click", () => xrStart("vr")); $("v-ar").addEventListener("click", () => xrStart("ar")); $("hp-close").addEventListener("click", () => toggleHelp(false));
 if (qsOn("help", false)) toggleHelp(true);
 $("v-stand").addEventListener("click", cycleStand);
@@ -1519,6 +1622,7 @@ addEventListener("keydown", (e) => {
   else if (k === "e") toggleBuilder(!buildOn);
   else if (k === "h") foldHud();
   else if (k === "x" && xr.support.vr) xrStart("vr");
+  else if (k === "f") walkToggle();
   else if (e.key === "?") toggleHelp();
   else if (k === "v") cycleStand();
   else if (k === "p" && staticMode) toggleProject();
@@ -1537,12 +1641,12 @@ function loop(time, frame) {
   const now = performance.now();
   if (now - lastFpsT > 500) { $("h-fps").textContent = Math.round((frameCount * 1000) / (now - lastFpsT)); frameCount = 0; lastFpsT = now; }
   if (renderer.xr.isPresenting) { xrFrame(frame, now); renderer.render(scene3, camera); return; } // the headset's cameras; no composer (bloom) in XR
-  if (standing == null) controls.update(); // OrbitControls.update() re-places the camera — never while standing at a vantage
-  if (simOn && composer) composer.render(); else renderer.render(scene3, camera);
+  if (walk.on) walkUpdate(now); else if (standing == null) controls.update(); // OrbitControls.update() re-places the camera — never while walking or standing at a vantage
+  if (walk.on && walk.stereo) renderStereo(); else if (simOn && composer) composer.render(); else renderer.render(scene3, camera);
 }
 renderer.setAnimationLoop(loop);
 // debug / automation hook (also lets tests drive the builder without a mouse)
-window.voxeled = { select, deselect, liveTransform, commitTransform, pickScene, liveConnect, liveDisconnect, ctlPress, scene3, get ropes() { return ropes; }, get screens() { return screens; }, get xr() { return xr; }, world, xrPlace, xrEnd, xrStart, get api() { return api; }, get structures() { return structures; }, get instTf() { return instTf; }, get selected() { return selected; }, get scene() { return scene; }, get currentScene() { return currentScene; } };
+window.voxeled = { select, deselect, liveTransform, commitTransform, pickScene, liveConnect, liveDisconnect, ctlPress, scene3, get ropes() { return ropes; }, get screens() { return screens; }, get xr() { return xr; }, get walk() { return walk; }, walkStart, walkStop, walkUpdate, world, xrPlace, xrEnd, xrStart, get api() { return api; }, get structures() { return structures; }, get instTf() { return instTf; }, get selected() { return selected; }, get scene() { return scene; }, get currentScene() { return currentScene; } };
 boot().catch((e) => { $("h-name").textContent = "load error"; console.error("VOXELED_ERROR", e); });
 </script>
 </body>

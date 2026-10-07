@@ -134,7 +134,9 @@ GLSL transpile is plausible later; a custom shader language is not worth it.
 group scaled to metres and placed; *vr* stands you at the piece's floor centre (a trigger steps the
 show, the sticks walk and snap-turn); *ar* on a phone draws a reticle from the hit-test and a tap puts
 the piece's floor centre there, facing you (`?xrscale=0.1` for a tabletop model). Bloom is off in XR.
-iOS has no WebXR AR — a USDZ export is the fallback, not done. The deeper AR use is the one Phase 2
+A *walk* mode gives the same placement first person on any screen (mouse / keys, touch stick, phone
+gyro, cardboard stereo) — the demo without a headset. iOS has no WebXR AR — a USDZ export is the
+fallback, not done. The deeper AR use is the one Phase 2
 names: the phone camera as the automapper, and later solving a projector's pose for the video half.
 
 **Order:** spaces + validation ✅ → layers ✅ → `screen` fixture ✅ → the video sampler ✅ → the
