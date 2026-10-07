@@ -104,7 +104,7 @@ else {
   log = await run(`example=ropes&ui=bar&sim=1&scene=comet&ws=ws://localhost:${busPort}/bus`, "static-bar");
   clearInterval(pump); bus.close();
   ok(/VOXELED_ROPES_READY 3 fixture\(s\) 3 rope\(s\)/.test(log), "ropes example: three rope fixtures drawn as three diffused tubes");
-  ok(/VOXELED_CONTROLS 2 panel\(s\) 6 button\(s\)/.test(log), "controls: two pedestal panels, six buttons, from the layout");
+  ok(/VOXELED_CONTROLS 2 panel\(s\) 6 button\(s\)/.test(log) && log.includes("VOXELED_CTL_PANEL open"), "controls: two pedestal panels, six buttons, from the layout; open on a wide window (a phone starts folded)");
   ok(log.includes("VOXELED_LIVE connecting") && log.includes("VOXELED_LIVE data"), "live: ?ws= connected to a real bus and received frames");
   ok(/VOXELED_CTL_STATUS strand X=idle · strand Y=connected · strand Z=– · pedestals=A/.test(log), "a status JSON on the socket fills the controls' fields (paths into the message; objects → the truthy keys)");
   ok(!log.includes("VOXELED_ERROR") && !/Uncaught/.test(log), "no page errors in bar mode");

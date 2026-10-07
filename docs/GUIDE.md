@@ -185,7 +185,9 @@ Each panel is a row of buttons (with keyboard keys); a press/release sends the p
 with `$button` / `$pressed` filled in — over the page's live socket (the bridge, a hub's `/bus`).
 `status` names the message type that carries state back and the fields to show next to the
 buttons (a dotted `path` into the message; an object shows its truthy keys). The viewer shows the
-panel while a live socket is connected (`?controls=0` hides it). The hub relays any non-control
+panel while a live socket is connected, with a header (`title:` in the block, default *controls*) that
+folds it to one line — a phone starts folded and the keys still work; `?controls=min` starts folded
+anywhere, `?controls=0` hides it. The hub relays any non-control
 JSON between bus clients, so a game engine on the bus sees the presses and can answer.
 
 ### 3.7 Inputs and merge
@@ -478,7 +480,8 @@ The same page has a **presentation** mode for a piece's public page (dnuke.art/t
 `?ui=bar` replaces the authoring HUD with a bar along the bottom — the show's scenes (click to pin
 one, crossfading from what's on) and the view toggles (live · orbit · sim · glow · ropes · model ·
 normals) — auto-orbits, and hides the floor grid. `?embed=1` is a bare canvas (no UI, no zoom/pan)
-for a tile. Both accept:
+for a tile. On a phone (under 700 px) the bar folds to the scene that's on, *live* and a ☰ menu that
+opens the rest and folds again after a pick, and the controls fold to their header. Both accept:
 
 | param | |
 |---|---|
@@ -486,7 +489,7 @@ for a tile. Both accept:
 | `orbit=0/1`, `zoom=1.5`, `az=`, `el=`, `cam=x,y,z&target=x,y,z` (mm) | the view; `zoom` > 1 is closer |
 | `sim=1`, `bloom=0`, `ropes=0`, `normals=1`, `model=opaque/hidden`, `grid=0/1`, `bg=0c0c0c` | look |
 | `ws=wss://…` | connect the live socket on load; `live=only` (bar/embed default: only what arrives is shown, dark otherwise — a dark piece means the sender is silent) or `live=merge` (over the show) |
-| `controls=0` | don't draw the piece's control panels |
+| `controls=0`, `controls=min` | don't draw the piece's control panels / start them folded to their header (a phone's default) |
 
 **Live mode** shows a dot top-right (green: frames arriving, with the rate · amber: connected, nothing
 coming · red: down, reconnecting every 2 s · blue: the server closed with code 4000, *asleep* — it

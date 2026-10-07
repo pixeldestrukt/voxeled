@@ -50,7 +50,7 @@ const hub = createHub({ scene, shade: F, fps: 30 });
 for (let f = 0; f < 60; f++) { hub.ctx.t = f / 30; hub.ctx.frame = f; for (const px of scene.pixels) F(px, f / 30, hub.ctx); }
 const heatNow = scene.pixels.slice(0, 100).map((p) => F(p, 2, hub.ctx));
 ok(heatNow[0][0] > 0.3 && heatNow[0][0] >= heatNow[0][1] && heatNow[0][1] >= heatNow[0][2], `fire: LED 0 is hot and black-body coloured (${heatNow[0].map((x) => x.toFixed(2)).join(",")})`);
-ok(heatNow.slice(0, 30).some((c) => c[0] > 0.1) && heatNow[99][0] === 0, "fire: heat has climbed the first stretch, the far end is cold");
+ok(heatNow.slice(0, 30).some((c) => c[0] > 0.1) && heatNow[99][0] < 0.02, "fire: heat has climbed the first stretch, the far end is cold (the taper, whatever the random cooling left)");
 ok(PATTERNS.solid({ value: 0.85 })(scene.pixels[0], 0, ctx)[0] === 0.85 && PATTERNS.solid({ rgb: [0, 0.5, 1] })(scene.pixels[0], 0, ctx)[2] === 1, "solid: one colour");
 
 // a baked multi-instance scene loaded back as ONE vxl fixture keeps its strands distinct

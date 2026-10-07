@@ -81,10 +81,29 @@
   #livepanel .btns { margin-top: 0; } #livepanel input { flex: 1; min-width: 0; }
   #livepanel small { display: block; color: var(--dim); margin-top: 8px; line-height: 1.5; }
   #livepanel[hidden] { display: none; }
+  /* phones (and any narrow window): the bar folds to the scene that's on, live and a menu button;
+     the piece's controls start folded to their header; keys and status shrink */
+  #bar .tog { display: none; }
+  @media (max-width: 700px) {
+    #bar { left: 12px; right: 12px; bottom: 12px; gap: 2px 14px; }
+    #bar .tog { display: inline-block; opacity: .7; font-size: 14px; padding: 2px 0; } #bar .tog::before { content: "☰"; } body:not(.barmin) #bar .tog::before { content: "×"; }
+    body.barmin #bar > button:not(.on):not(.tog):not(.b-live), body.barmin #bar > button[class^="b-"]:not(.b-live), body.barmin #bar .sep { display: none; }
+    #ctl { top: 12px; left: 12px; }
+    #ctl .key { width: 44px; height: 44px; font-size: 14px; } #ctl .keys { gap: 6px; }
+    #ctl .st { min-width: 0; } #ctl .row { gap: 10px 16px; }
+    #livehint { top: 20px; right: 12px; } #livehint #l-text { display: none; } #livehint .dot { margin: 0; } /* the dot alone; the banner and the live button say the rest */
+    #livebanner { top: auto; bottom: 84px; width: calc(100vw - 48px); padding: 10px 14px; }
+  }
   /* the piece's own controls (layout controls:) — button panels + reported state */
-  #ctl { top: 14px; left: clamp(12px, 4vw, 40px); display: none; gap: 22px; align-items: flex-start; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; user-select: none; }
+  #ctl { top: 14px; left: clamp(12px, 4vw, 40px); display: none; flex-direction: column; gap: 10px; max-width: calc(100vw - 24px); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; user-select: none; -webkit-tap-highlight-color: transparent; }
   body.ctl #ctl { display: flex; } body.bar:not(.ctl) #ctl { display: none; }
   body:not(.bar) #ctl { top: auto; bottom: 34px; left: 12px; }
+  #ctl .hd { display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--dim); }
+  #ctl .hd b { color: var(--ink); font-weight: 400; }
+  #ctl .tog { background: none; border: 0; padding: 2px 0 2px 10px; color: var(--ink); opacity: .6; font-size: 11px; letter-spacing: .1em; text-transform: uppercase; } #ctl .tog:hover { opacity: 1; }
+  #ctl .tog::after { content: "▾"; margin-left: 6px; display: inline-block; transition: transform .15s; } #ctl.min .tog::after { transform: rotate(-90deg); }
+  #ctl .row { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-start; } #ctl.min .row { display: none; }
+  #ctl.min { gap: 0; padding: 8px 12px; } #ctl.min .hd { gap: 8px; }
   #ctl .pan { display: flex; flex-direction: column; gap: 8px; } #ctl .pan > label { color: var(--dim); } #ctl .pan > label b { color: var(--ink); font-weight: 400; }
   #ctl .keys { display: flex; gap: 8px; }
   #ctl .key { width: 50px; height: 50px; border-radius: 50%; border: 2px solid #444; background: #161616; color: #fff; font-size: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; touch-action: none; transition: background .08s, border-color .08s, box-shadow .08s; padding: 0; }
@@ -910,8 +929,17 @@ function buildBar(sc) {
     b.addEventListener("click", () => { set(); syncBar(); });
     bar.appendChild(b); barToggles[name] = b;
   }
+  const tog = document.createElement("button"); tog.className = "tog"; tog.title = "patterns and view"; tog.setAttribute("aria-label", "menu");
+  tog.addEventListener("click", () => setBarMin(!document.body.classList.contains("barmin")));
+  bar.appendChild(tog);
   syncBar();
 }
+// Small screens: the bar is a menu (the scene that's on + live + ☰) until opened, and folds again
+// after a pick; the piece's controls fold to their header (the keys still work). ?controls=min folds
+// them anywhere. The fold is only drawn under 700 px — on a desktop the bar is always the full bar.
+const narrow = matchMedia("(max-width: 700px)");
+function setBarMin(min) { document.body.classList.toggle("barmin", min); }
+setBarMin(true);
 function syncBar() {
   barButtons.forEach((b, i) => b.classList.toggle("on", i === currentScene));
   const t = barToggles;
@@ -927,7 +955,7 @@ function syncBar() {
 // pin a scene (index or name); picking one by hand is the way out of live mode, as on a stage
 async function pickScene(which, manual) {
   if (manual && api?.live?.wanted && liveOnly()) liveDisconnect();
-  if (manual) { controls.autoRotate = false; autoBtn.classList.remove("on"); }
+  if (manual) { controls.autoRotate = false; autoBtn.classList.remove("on"); if (narrow.matches) setBarMin(true); }
   try { const r = await api.control({ scene: which }); if (r.error) console.warn("VOXELED_SCENE", r.error); else { currentScene = r.current; syncBar(); } } catch {}
 }
 setInterval(async () => { if (!api || !barButtons.length) return; try { const r = await api.control({}); if (typeof r.current === "number" && r.current !== currentScene) { currentScene = r.current; syncBar(); } } catch {} }, 1000);
@@ -973,10 +1001,17 @@ setInterval(() => { if (api?.live?.wanted) renderLive(api.live); }, 250);
 // the piece's controls (layout `controls:`): button panels that speak JSON over the socket, and
 // the state the far end reports, shown next to them — Thread's pedestals + strand states
 let ctlKeys = {}, ctlButtons = {}, ctlStatus = null, ctlSleep = null;
+let ctlMin = qs.get("controls") === "min" || narrow.matches; // folded: header only (a phone's default)
+function setCtlMin(min) { ctlMin = min; $("ctl").classList.toggle("min", min); const t = $("ctl").querySelector(".tog"); if (t) { t.textContent = min ? "show" : "hide"; t.setAttribute("aria-expanded", String(!min)); } console.log("VOXELED_CTL_PANEL", min ? "min" : "open"); }
 function buildControls(sc) {
   const c = sc.meta?.controls, el = $("ctl"); el.innerHTML = ""; ctlKeys = {}; ctlButtons = {}; ctlStatus = null; ctlSleep = null;
   if (!c || !c.panels?.length) { showControls(false); return; }
   const panels = c.panels, status = c.status;
+  const hd = document.createElement("div"); hd.className = "hd";
+  hd.innerHTML = `<span><b>${esc(c.title || "controls")}</b> · ${panels.map((p) => esc(p.name)).join(" · ")}</span><button class="tog"></button>`;
+  hd.querySelector(".tog").addEventListener("click", () => setCtlMin(!ctlMin));
+  el.appendChild(hd);
+  const row = document.createElement("div"); row.className = "row"; el.appendChild(row);
   const mk = (p, pi) => {
     const pan = document.createElement("div"); pan.className = "pan";
     const keyOf = Object.fromEntries(Object.entries(p.keys || {}).map(([k, b]) => [b, k]));
@@ -996,13 +1031,14 @@ function buildControls(sc) {
   };
   console.log("VOXELED_CONTROLS", panels.length, "panel(s)", panels.reduce((a, p) => a + p.buttons.length, 0), "button(s)");
   panels.forEach((p, pi) => {
-    el.appendChild(mk(p, pi));
+    row.appendChild(mk(p, pi));
     if (pi === 0 && status?.fields?.length) {
       const st = document.createElement("div"); st.className = "st";
       st.innerHTML = status.fields.map((f, i) => `<div><span>${esc(f.label)}</span><span class="off" data-f="${i}">–</span></div>`).join("");
-      el.appendChild(st); ctlStatus = { type: status.type, fields: status.fields, els: [...st.querySelectorAll("[data-f]")] };
+      row.appendChild(st); ctlStatus = { type: status.type, fields: status.fields, els: [...st.querySelectorAll("[data-f]")] };
     }
   });
+  setCtlMin(ctlMin);
   showControls(!!api?.live?.wanted && qsOn("controls", true));
 }
 const esc = (x) => String(x).replace(/[&<>"]/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch]));

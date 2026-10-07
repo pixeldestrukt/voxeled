@@ -245,7 +245,7 @@ export function resolveControls(c) {
     return { name: p.name || `panel ${i + 1}`, buttons, keys, message: p.message, hint: p.hint || null };
   });
   const status = c.status ? { type: c.status.type || "status", fields: (c.status.fields || []).map((f, i) => { if (!f.path) throw new Error(`controls.status.fields[${i}]: needs a path`); return { label: f.label || f.path, path: String(f.path) }; }) } : null;
-  return { panels, status };
+  return { ...(c.title ? { title: String(c.title) } : {}), panels, status };
 }
 
 export const TRACKER_SOURCES = ["ws", "phone", "psn"];
