@@ -44,3 +44,6 @@ captures/
 
 # Test artifacts (screenshots, chrome profile)
 test/artifacts/
+
+# The built Pages site (scripts/build-site.mjs; the workflow builds it)
+site/
