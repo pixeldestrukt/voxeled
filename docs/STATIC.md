@@ -67,7 +67,7 @@ show: { holdS: 14, fadeS: 1.5, scenes: [{ name: plasma, pattern: plasma }, { nam
 Vendor the viewer into the site (`node scripts/vendor.mjs dnuke.art/voxeled`) and the piece's page
 embeds it, keeping its own title, credits and text:
 ```html
-<iframe src="/voxeled/viewer/?project=/thread/thread.yaml&ui=bar&sim=1&zoom=1.4"></iframe>
+<iframe src="/voxeled/viewer/?project=/thread/thread.yaml&ui=bar&sim=1&zoom=1.4" allow="xr-spatial-tracking"></iframe>
 ```
 `?ws=wss://…` on the page is passed through to the iframe; keys are forwarded with `postMessage`
 (GUIDE §13.1). The rope layout and the full model stay private in thread-3d; the page only ever

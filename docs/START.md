@@ -124,6 +124,8 @@ fixture, ▦ make array. Every edit is live; 💾 saves the layout.
   (rides with every instance) or once in the scene (`structures:` at the top level).
 - **N** normals — a quill per LED showing where it shines. Check this first with imported
   geometry; if they point the wrong way, the `mesh` importer has `normalSign`.
+- **In a headset, on a phone.** With WebXR, **vr** (or **X**) walks the piece at true scale and **ar**
+  stands it on your floor — a tap where the ring lands places it; `?xrscale=0.1` for a tabletop model.
 - **Standing at the site.** Give the layout a place (`site: { lat, lon, headingDeg }`) and
   **vantages** — spots with a 360° photo (`image:`) or a Street View cubemap — then **V** puts
   the camera at that eye with the piece rendered over the photo at the true size and bearing.

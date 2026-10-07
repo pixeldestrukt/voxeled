@@ -147,7 +147,7 @@
   <hr/>
   <div class="btns" id="view" style="margin-top:0">
     <button id="v-sim" title="S">sim</button><button id="v-bloom" title="B">bloom</button>
-    <button id="v-model" title="M">model</button><button id="v-normals" title="N">normals</button><button id="v-build" title="E">builder</button><button id="v-help" title="? — how to work in the editor">help</button><button id="v-stand" title="V — stand at a vantage (site context)" hidden>stand</button><button id="v-proj" title="P — this page's project: layout + the files you dropped in (kept in this browser)" hidden>project</button>
+    <button id="v-model" title="M">model</button><button id="v-normals" title="N">normals</button><button id="v-build" title="E">builder</button><button id="v-help" title="? — how to work in the editor">help</button><button id="v-vr" title="X — walk the piece in a headset (WebXR)" hidden>vr</button><button id="v-ar" title="put the piece on your floor (WebXR AR)" hidden>ar</button><button id="v-stand" title="V — stand at a vantage (site context)" hidden>stand</button><button id="v-proj" title="P — this page's project: layout + the files you dropped in (kept in this browser)" hidden>project</button>
   </div>
   <hr/>
   <div id="xf">
@@ -249,7 +249,9 @@
   <h2>patterns</h2>
   <p>Functions of each LED's real position and normal: <code>ribbonChase planeSweep worldWipe helix lantern swirl drops comet plasma fire strands solid normalRGB spotlight projector</code>. Your own go in <code>src/patterns.mjs</code> (the Node hub, or your own copy of this page).</p>
   <h2>keys</h2>
-  <p><kbd>H</kbd> hud · <kbd>P</kbd> project · <kbd>E</kbd> builder · <kbd>S</kbd> sim · <kbd>B</kbd> bloom · <kbd>M</kbd> model · <kbd>N</kbd> normals · <kbd>R</kbd> ropes · <kbd>O</kbd> orbit · <kbd>V</kbd> stand · <kbd>?</kbd> this</p>
+  <p><kbd>H</kbd> hud · <kbd>P</kbd> project · <kbd>E</kbd> builder · <kbd>S</kbd> sim · <kbd>B</kbd> bloom · <kbd>M</kbd> model · <kbd>N</kbd> normals · <kbd>R</kbd> ropes · <kbd>O</kbd> orbit · <kbd>V</kbd> stand · <kbd>X</kbd> vr · <kbd>?</kbd> this</p>
+  <h2>headset · phone</h2>
+  <p>With WebXR, <b>vr</b> walks the piece at true scale (trigger = next scene, left stick walks, right stick turns) and <b>ar</b> on a phone stands it on your floor (tap where the ring lands; tap again to move it). <code>?xrscale=0.1</code> makes a 1:10 model for a table.</p>
   <p><a href="https://pixeldestrukt.github.io/voxeled/docs/EDITOR.html" target="_blank" rel="noopener">the full editor guide ↗</a> · <a href="https://pixeldestrukt.github.io/voxeled/docs/START.html" target="_blank" rel="noopener">getting started ↗</a> · <a href="https://pixeldestrukt.github.io/voxeled/docs/GUIDE.html" target="_blank" rel="noopener">authoring guide ↗</a></p>
 </div>
 <div id="drop">drop files to add them to the project · a .yaml becomes the layout · a bundle .json opens a project</div>
@@ -296,12 +298,102 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping; // sim mode is HDR-ish (emis
 document.body.appendChild(renderer.domElement);
 
 const scene3 = new THREE.Scene();
+const world = new THREE.Group(); world.name = "world"; scene3.add(world); // everything in mm goes here; in XR the group is scaled to metres and placed
 scene3.background = new THREE.Color(/^[0-9a-f]{6}$/i.test(qs.get("bg") || "") ? parseInt(qs.get("bg"), 16) : 0x05060a);
 scene3.add(new THREE.HemisphereLight(0x8fa3b8, 0x1a1a1a, 1.1)); // lights only matter for structure meshes
 const keyLight = new THREE.DirectionalLight(0xffffff, 1.1);
 keyLight.position.set(0.6, 1, 0.8);
 scene3.add(keyLight);
 const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 1, 500000);
+
+// ── WebXR: walk the piece at true scale (VR), or stand it on your own floor (AR) ───────────────
+// The world group is in mm; in a session it is scaled to metres (× ?xrscale — 0.1 puts a 1:10
+// model on a table) and placed: VR stands you at the piece's floor centre (or ?xrdist metres back,
+// facing it); AR draws a reticle where the phone's hit-test lands and a tap puts the piece's floor
+// centre there, turned to face you — tap again to move it. A controller trigger steps the show to
+// the next scene; the left thumbstick walks, the right one snap-turns. Bloom is off in XR (the
+// composer renders to a texture, not the headset); the simulator's emitters still glow.
+renderer.xr.enabled = true; renderer.xr.setReferenceSpaceType("local-floor");
+const xr = { mode: null, support: { vr: false, ar: false }, scale: Math.max(1e-4, +(qs.get("xrscale") || 1)), dist: qs.has("xrdist") ? +qs.get("xrdist") : null, saved: null, hitSource: null, placed: false, turnAt: 0, lastT: 0 };
+const reticle = new THREE.Mesh(new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xff5e87 }));
+reticle.matrixAutoUpdate = false; reticle.visible = false; scene3.add(reticle);
+async function xrDetect() {
+  if (!navigator.xr) { console.log("VOXELED_XR none"); return; }
+  for (const m of ["vr", "ar"]) { try { xr.support[m] = await navigator.xr.isSessionSupported(`immersive-${m}`); } catch {} }
+  console.log("VOXELED_XR", xr.support.vr ? "vr" : "", xr.support.ar ? "ar" : "", !xr.support.vr && !xr.support.ar ? "unsupported" : "");
+  $("v-vr").hidden = !xr.support.vr; $("v-ar").hidden = !xr.support.ar;
+  if (scene) buildBar(scene);
+}
+const floorFrame = () => { // the piece's floor centre + radius (mm), like patterns' sceneFrame
+  const lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
+  for (const px of scene?.pixels || []) { if (px.p[0] < lo[0]) lo[0] = px.p[0]; if (px.p[0] > hi[0]) hi[0] = px.p[0]; if (px.p[2] < lo[1]) lo[1] = px.p[2]; if (px.p[2] > hi[1]) hi[1] = px.p[2]; }
+  return isFinite(lo[0]) ? { cx: (lo[0] + hi[0]) / 2, cz: (lo[1] + hi[1]) / 2, r: Math.max(hi[0] - lo[0], hi[1] - lo[1]) / 2 || 1 } : { cx: 0, cz: 0, r: 1000 };
+};
+function xrPlace(at = null, yaw = 0) { // at: [x, y, z] metres (AR hit) or null (VR: around the user)
+  const s = 0.001 * xr.scale, F = floorFrame();
+  world.scale.setScalar(s); world.rotation.set(0, yaw, 0);
+  const c = new THREE.Vector3(F.cx * s, 0, F.cz * s).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw); // the piece's floor centre, after the turn
+  if (at) world.position.set(at[0] - c.x, at[1], at[2] - c.z);
+  else { const R = F.r * s, dist = xr.dist ?? (R > 1.5 ? 0 : R + 1); world.position.set(-c.x, 0, -c.z - dist); }
+  xr.placed = true;
+}
+async function xrStart(mode) {
+  if (xr.mode) return xrExit();
+  let session;
+  try {
+    session = await navigator.xr.requestSession(`immersive-${mode}`, mode === "ar"
+      ? { requiredFeatures: ["hit-test", "local-floor"], optionalFeatures: ["dom-overlay"], domOverlay: { root: document.body } }
+      : { optionalFeatures: ["local-floor", "bounded-floor"] });
+  } catch (e) { console.warn("VOXELED_XR_ERROR", e.message); return; }
+  xr.mode = mode; xr.saved = { near: camera.near, far: camera.far, bg: scene3.background, grid: groundGrid?.visible, auto: controls.autoRotate, orbit: controls.enabled };
+  camera.near = 0.02; camera.far = 2000; controls.autoRotate = false; controls.enabled = false; // metres now
+  if (mode === "ar") { scene3.background = null; if (groundGrid) groundGrid.visible = false; world.visible = false; xr.placed = false; }
+  else { world.visible = true; xrPlace(); }
+  session.addEventListener("end", xrEnd);
+  await renderer.xr.setSession(session);
+  if (mode === "ar") { try { const viewerSpace = await session.requestReferenceSpace("viewer"); xr.hitSource = await session.requestHitTestSource({ space: viewerSpace }); } catch (e) { console.warn("VOXELED_XR_ERROR", "hit-test:", e.message); } }
+  document.body.classList.add("xr"); syncBar(); applyMode();
+  console.log("VOXELED_XR_START", mode);
+}
+function xrExit() { renderer.xr.getSession()?.end(); }
+function xrEnd() {
+  const sv = xr.saved || {};
+  world.scale.setScalar(1); world.position.set(0, 0, 0); world.rotation.set(0, 0, 0); world.visible = true;
+  camera.near = sv.near ?? 1; camera.far = sv.far ?? 500000; camera.updateProjectionMatrix();
+  scene3.background = sv.bg ?? scene3.background; if (groundGrid && sv.grid != null) groundGrid.visible = sv.grid;
+  controls.enabled = sv.orbit ?? true; controls.autoRotate = !!sv.auto;
+  try { xr.hitSource?.cancel(); } catch {} xr.hitSource = null; reticle.visible = false;
+  xr.mode = null; xr.saved = null; document.body.classList.remove("xr"); syncBar(); applyMode();
+  console.log("VOXELED_XR_END");
+}
+// controllers: a trigger steps the show (VR) or places the piece (AR)
+for (const k of [0, 1]) {
+  const c = renderer.xr.getController(k); scene3.add(c);
+  c.addEventListener("selectstart", () => {
+    if (xr.mode === "ar") { if (reticle.visible) { const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(); reticle.matrix.decompose(p, q, sc); const cam = renderer.xr.getCamera().position; xrPlace([p.x, p.y, p.z], Math.atan2(cam.x - p.x, cam.z - p.z)); world.visible = true; console.log("VOXELED_XR_PLACED", p.x.toFixed(2), p.y.toFixed(2), p.z.toFixed(2)); } }
+    else if (barButtons.length) pickScene((currentScene + 1) % barButtons.length, true);
+  });
+}
+function xrFrame(frame, now) {
+  const dt = xr.lastT ? Math.min(0.1, (now - xr.lastT) / 1000) : 0; xr.lastT = now;
+  const session = renderer.xr.getSession(); if (!session) return;
+  if (xr.hitSource && frame) { // AR: the reticle rides the hit-test
+    const hits = frame.getHitTestResults(xr.hitSource), ref = renderer.xr.getReferenceSpace();
+    const pose = hits.length ? hits[0].getPose(ref) : null;
+    reticle.visible = !!pose; if (pose) reticle.matrix.fromArray(pose.transform.matrix);
+  }
+  // thumbsticks: left walks (the world moves the other way, in the head's yaw), right snap-turns 30°
+  const cam = renderer.xr.getCamera(), yaw = new THREE.Euler().setFromQuaternion(cam.quaternion, "YXZ").y;
+  for (const src of session.inputSources) {
+    const ax = src.gamepad?.axes; if (!ax || ax.length < 4) continue;
+    const x = ax[2], y = ax[3];
+    if (src.handedness === "right") { if (Math.abs(x) > 0.7 && now - xr.turnAt > 350) { xr.turnAt = now; const a = x > 0 ? -Math.PI / 6 : Math.PI / 6; const pivot = new THREE.Vector3(cam.position.x, 0, cam.position.z); world.position.sub(pivot).applyAxisAngle(new THREE.Vector3(0, 1, 0), a).add(pivot); world.rotation.y += a; } }
+    else if (Math.abs(x) > 0.15 || Math.abs(y) > 0.15) { const v = new THREE.Vector3(x, 0, y).applyAxisAngle(new THREE.Vector3(0, 1, 0), yaw).multiplyScalar(2 * dt); world.position.sub(v); }
+  }
+}
+xrDetect();
+// ?xrtest=1: exercise the placement maths without a session (headless gate) — place, log, restore
+if (qsOn("xrtest", false)) addEventListener("voxeled:scene", () => { xrPlace(); const p = world.position; console.log("VOXELED_XR_TEST", "scale", world.scale.x, "pos", p.x.toFixed(3), p.y.toFixed(3), p.z.toFixed(3)); xr.saved = {}; xrEnd(); }, { once: true });
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
@@ -463,10 +555,10 @@ function ropeGeometry(idx, P, Nn, radius, RADIAL = 8) {
 
 // ── build / rebuild the scene objects from a scene JSON (in place: camera stays) ──
 function disposeSceneObjects() {
-  for (const o of [mesh, simMesh, normalsLines]) if (o) { scene3.remove(o); o.geometry.dispose(); }
-  for (const st of structures) scene3.remove(st.group);
-  for (const r of ropes) { scene3.remove(r.group); for (const m of r.meshes) { m.geometry.dispose(); m.material.dispose(); } }
-  for (const sx of screens) { scene3.remove(sx.mesh); sx.mesh.geometry.dispose(); sx.mesh.material.dispose(); sx.tex.dispose(); }
+  for (const o of [mesh, simMesh, normalsLines]) if (o) { world.remove(o); o.geometry.dispose(); }
+  for (const st of structures) world.remove(st.group);
+  for (const r of ropes) { world.remove(r.group); for (const m of r.meshes) { m.geometry.dispose(); m.material.dispose(); } }
+  for (const sx of screens) { world.remove(sx.mesh); sx.mesh.geometry.dispose(); sx.mesh.material.dispose(); sx.tex.dispose(); }
   structures.length = 0; ropes = []; ropePixel = null; screens = []; screenPixel = null;
   mesh = simMesh = normalsLines = null;
 }
@@ -543,7 +635,7 @@ function buildSceneObjects(sc) {
       for (const i of idx) ropePixel[i] = 1;
     }
     if (!meshes.length) continue;
-    scene3.add(group); ropes.push({ group, meshes, inst: k, strands: strands.size });
+    world.add(group); ropes.push({ group, meshes, inst: k, strands: strands.size });
   }
   // screens: a screen fixture's texels as ONE textured plane (row 0 at the top), smooth like a
   // projection; its per-texel quads and dots are hidden. The frame feeds the texture directly.
@@ -558,11 +650,12 @@ function buildSceneObjects(sc) {
     tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = qsOn("pixelated", false) ? THREE.NearestFilter : THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.needsUpdate = true;
     const e = emitters[k] || EMIT_DEFAULT; // a surface, not a bare chip: its gain scales the plane so white doesn't drown the room in bloom
     const m = new THREE.Mesh(new THREE.PlaneGeometry(widthMM, heightMM), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide, color: new THREE.Color().setScalar(Math.min(1, (e.gain ?? 1.2) / 1.6)) }));
-    m.name = `screen:${k}`; scene3.add(m);
+    m.name = `screen:${k}`; world.add(m);
     screens.push({ mesh: m, tex, data, inst: k, offset, cols, rows });
   });
   for (let k = 0; k < instTf.length; k++) placeInstance(k);
-  scene3.add(mesh, simMesh, normalsLines);
+  world.add(mesh, simMesh, normalsLines);
+  dispatchEvent(new Event("voxeled:scene"));
   if (screens.length) console.log("VOXELED_SCREENS_READY", screens.length, "screen(s)", screens.map((x) => `${x.cols}x${x.rows}`).join(" "));
   if (ropes.length) console.log("VOXELED_ROPES_READY", ropes.length, "fixture(s)", ropes.reduce((a, r) => a + r.meshes.length, 0), "rope(s)");
 
@@ -581,7 +674,7 @@ function buildSceneObjects(sc) {
     const ground = new THREE.GridHelper(gspan, Math.max(6, Math.min(40, Math.round(gspan / 500))), 0x33436b, 0x172036);
     ground.position.set(center.x, lo[1], center.z);
     ground.visible = qsOn("grid", !(barMode || embedMode));
-    scene3.add(ground); groundGrid = ground;
+    world.add(ground); groundGrid = ground;
     const nbar = [0, 0, 0];
     for (const p of px) { nbar[0] += p.n[0]; nbar[1] += p.n[1]; nbar[2] += p.n[2]; }
     const horiz = Math.hypot(nbar[0], nbar[2]) > 0.05 * N ? [nbar[0], nbar[2]] : [0, 1];
@@ -668,7 +761,7 @@ async function loadStructures(sc) {
       outer.name = `structure:${s.name}`;
       outer.add(inner);
       if (s.parent) { outer.rotation.set(s.parent.rotDeg[0] * D2R, s.parent.rotDeg[1] * D2R, s.parent.rotDeg[2] * D2R, "ZYX"); outer.position.set(s.parent.pos[0], s.parent.pos[1], s.parent.pos[2]); }
-      scene3.add(outer);
+      world.add(outer);
       structures.push({ group: outer, meshes, mats, name: s.name, inst: s.inst ?? (s.parent ? -1 : null) }); // -1: per-fixture but from an older hub (unknown owner)
     } catch (e) { console.warn("VOXELED_STRUCTURE_FAILED", s.name, e); }
   }));
@@ -709,7 +802,7 @@ async function enterVantage(k, { keepLook = false } = {}) {
     mesh.renderOrder = -100; mesh.frustumCulled = false; mesh.name = "backdrop";
     if (standing !== k) { [].concat(mesh.material).forEach((m) => m.dispose()); return; } // user moved on while loading
     backdrop = mesh; backdrop.position.set(...v.pos);
-    scene3.add(backdrop);
+    world.add(backdrop);
     console.log("VOXELED_STAND_READY", v.name, look.bearing, look.pitch, look.fov);
   } catch (e) { console.warn("VOXELED_VANTAGE_FAILED", v.name, e); }
   camera.position.set(...v.pos);
@@ -719,7 +812,7 @@ async function enterVantage(k, { keepLook = false } = {}) {
   applyMode();
 }
 function leaveVantage(silent = false) {
-  if (backdrop) { scene3.remove(backdrop); backdrop.geometry.dispose(); [].concat(backdrop.material).forEach((m) => { m.map?.dispose(); m.dispose(); }); backdrop = null; }
+  if (backdrop) { world.remove(backdrop); backdrop.geometry.dispose(); [].concat(backdrop.material).forEach((m) => { m.map?.dispose(); m.dispose(); }); backdrop = null; }
   if (standing == null) return;
   standing = null;
   camera.fov = 45; camera.updateProjectionMatrix();
@@ -788,7 +881,7 @@ function onPose(m) {
     g.add(new THREE.Mesh(new THREE.SphereGeometry(40, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffcf4d })));
     const aim = new THREE.Mesh(new THREE.ConeGeometry(25, 300, 10), new THREE.MeshBasicMaterial({ color: 0xffcf4d, transparent: true, opacity: 0.6 }));
     aim.position.set(0, 150, 0); g.add(aim);                                   // the tracker's +Y (its aim axis) as a cone
-    scene3.add(g); mk = g; trackerMarks.set(m.id, g);
+    world.add(g); mk = g; trackerMarks.set(m.id, g);
   }
   mk.position.set(m.pos[0], m.pos[1], m.pos[2]);
   mk.rotation.set(m.rotDeg[0] * D2R, m.rotDeg[1] * D2R, m.rotDeg[2] * D2R, "ZYX");
@@ -1015,6 +1108,8 @@ function buildBar(sc) {
     ["ropes", () => simOn && ropesOn, () => { ropesOn = !ropesOn; for (let k = 0; k < instTf.length; k++) placeInstance(k); applyMode(); }, ropes.length > 0],
     ["model", () => modelMode !== 2, () => { modelMode = (modelMode + 1) % 3; applyMode(); }, (sc.meta?.structures?.length || 0) > 0],
     ["normals", () => normalsOn, () => { normalsOn = !normalsOn; applyMode(); }, true],
+    ["vr", () => xr.mode === "vr", () => xrStart("vr"), xr.support.vr],
+    ["ar", () => xr.mode === "ar", () => xrStart("ar"), xr.support.ar],
   ];
   for (const [name, get, set, show] of toggles) {
     if (!show) continue;
@@ -1043,6 +1138,8 @@ function syncBar() {
   if (t.ropes) t.ropes.classList.toggle("on", simOn && ropesOn);
   if (t.model) t.model.classList.toggle("on", modelMode !== 2);
   if (t.normals) t.normals.classList.toggle("on", normalsOn);
+  if (t.vr) t.vr.classList.toggle("on", xr.mode === "vr"); if (t.ar) t.ar.classList.toggle("on", xr.mode === "ar");
+  $("v-vr").classList.toggle("on", xr.mode === "vr"); $("v-ar").classList.toggle("on", xr.mode === "ar");
   document.body.classList.toggle("live", !!api?.live?.wanted);
 }
 // pin a scene (index or name); picking one by hand is the way out of live mode, as on a stage
@@ -1184,12 +1281,12 @@ let buildOn = false, selected = null, layout = null, dirty = false;
 const gizmo = new TransformControls(camera, renderer.domElement);
 const proxy = new THREE.Object3D();
 proxy.rotation.order = "ZYX";
-scene3.add(proxy, gizmo);
+world.add(proxy, gizmo);
 gizmo.visible = false; gizmo.enabled = false;
 gizmo.setTranslationSnap(10); gizmo.setRotationSnap(5 * D2R);
 const boxHelper = new THREE.Box3Helper(new THREE.Box3(), 0xff5e87);
 boxHelper.visible = false;
-scene3.add(boxHelper);
+world.add(boxHelper);
 const raycaster = new THREE.Raycaster();
 
 let hubStale = false; // the hub process predates the builder (no /layout, no src/inst in the scene)
@@ -1407,7 +1504,8 @@ $("v-normals").addEventListener("click", () => { normalsOn = !normalsOn; applyMo
 $("v-build").addEventListener("click", () => toggleBuilder(!buildOn));
 $("b-close").addEventListener("click", () => toggleBuilder(false));
 function toggleHelp(on = $("helpp").hidden) { $("helpp").hidden = !on; $("v-help").classList.toggle("on", on); if (on) console.log("VOXELED_HELP"); }
-$("v-help").addEventListener("click", () => toggleHelp()); $("hp-close").addEventListener("click", () => toggleHelp(false));
+$("v-help").addEventListener("click", () => toggleHelp());
+$("v-vr").addEventListener("click", () => xrStart("vr")); $("v-ar").addEventListener("click", () => xrStart("ar")); $("hp-close").addEventListener("click", () => toggleHelp(false));
 if (qsOn("help", false)) toggleHelp(true);
 $("v-stand").addEventListener("click", cycleStand);
 
@@ -1420,6 +1518,7 @@ addEventListener("keydown", (e) => {
   else if (k === "m") { modelMode = (modelMode + 1) % 3; applyMode(); }
   else if (k === "e") toggleBuilder(!buildOn);
   else if (k === "h") foldHud();
+  else if (k === "x" && xr.support.vr) xrStart("vr");
   else if (e.key === "?") toggleHelp();
   else if (k === "v") cycleStand();
   else if (k === "p" && staticMode) toggleProject();
@@ -1434,16 +1533,16 @@ addEventListener("keydown", (e) => {
   else if (k === "a") autoBtn.click();
 });
 
-function loop() {
-  requestAnimationFrame(loop);
-  if (standing == null) controls.update(); // OrbitControls.update() re-places the camera — never while standing at a vantage
+function loop(time, frame) {
   const now = performance.now();
   if (now - lastFpsT > 500) { $("h-fps").textContent = Math.round((frameCount * 1000) / (now - lastFpsT)); frameCount = 0; lastFpsT = now; }
+  if (renderer.xr.isPresenting) { xrFrame(frame, now); renderer.render(scene3, camera); return; } // the headset's cameras; no composer (bloom) in XR
+  if (standing == null) controls.update(); // OrbitControls.update() re-places the camera — never while standing at a vantage
   if (simOn && composer) composer.render(); else renderer.render(scene3, camera);
 }
-loop();
+renderer.setAnimationLoop(loop);
 // debug / automation hook (also lets tests drive the builder without a mouse)
-window.voxeled = { select, deselect, liveTransform, commitTransform, pickScene, liveConnect, liveDisconnect, ctlPress, scene3, get ropes() { return ropes; }, get screens() { return screens; }, get api() { return api; }, get structures() { return structures; }, get instTf() { return instTf; }, get selected() { return selected; }, get scene() { return scene; }, get currentScene() { return currentScene; } };
+window.voxeled = { select, deselect, liveTransform, commitTransform, pickScene, liveConnect, liveDisconnect, ctlPress, scene3, get ropes() { return ropes; }, get screens() { return screens; }, get xr() { return xr; }, world, xrPlace, xrEnd, xrStart, get api() { return api; }, get structures() { return structures; }, get instTf() { return instTf; }, get selected() { return selected; }, get scene() { return scene; }, get currentScene() { return currentScene; } };
 boot().catch((e) => { $("h-name").textContent = "load error"; console.error("VOXELED_ERROR", e); });
 </script>
 </body>

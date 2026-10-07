@@ -573,6 +573,12 @@ opens the rest and folds again after a pick, and the controls fold to their head
 | `sim=1`, `bloom=0`, `ropes=0`, `normals=1`, `model=opaque/hidden`, `grid=0/1`, `bg=0c0c0c` | look |
 | `ws=wss://…` | connect the live socket on load; `live=only` (bar/embed default: only what arrives is shown, dark otherwise — a dark piece means the sender is silent) or `live=merge` (over the show) |
 | `controls=0`, `controls=min` | don't draw the piece's control panels / start them folded to their header (a phone's default) |
+| `xrscale=0.1`, `xrdist=2` | WebXR: the piece's scale in a headset / on a phone (1 = true size; 0.1 a tabletop model) and, in VR, how far back from its centre you start (default: inside it if it is big, else just outside) |
+
+**In a headset, on a phone.** Where the browser has WebXR, the bar (and the HUD) gain **vr** and **ar**: *vr* walks the
+piece at true scale — a trigger steps the show, the left stick walks, the right one snap-turns — and *ar* on a phone
+stands it on the real floor: a ring follows the hit-test, a tap places the piece's floor centre there facing you, a tap
+moves it. Bloom is off in XR. The iframe needs `allow="xr-spatial-tracking"`. No WebXR (an iPhone): the buttons don't appear.
 
 **Live mode** shows a dot top-right (green: frames arriving, with the rate · amber: connected, nothing
 coming · red: down, reconnecting every 2 s · blue: the server closed with code 4000, *asleep* — it
@@ -583,7 +589,7 @@ scene by hand leaves live mode, as on a stage.
 (nothing else) into a site; a page there embeds the piece and keeps its own chrome:
 
 ```html
-<iframe src="/voxeled/viewer/?project=/thread/thread.yaml&ui=bar&sim=1&zoom=1.4"></iframe>
+<iframe src="/voxeled/viewer/?project=/thread/thread.yaml&ui=bar&sim=1&zoom=1.4" allow="xr-spatial-tracking"></iframe>
 ```
 
 The host page can drive it with `postMessage`: `{ voxeled: "key", key: "q", type: "keydown"|"keyup" }`

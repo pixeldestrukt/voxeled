@@ -130,14 +130,15 @@ GLSL transpile is plausible later; a custom shader language is not worth it.
   a projector surface share one spatial pattern (`layouts/screen.yaml`: a plane of light crosses the
   columns and the wall at the same real height). Big surfaces are where the GLSL backend earns its keep.
 
-**AR / VR.** The simulator is three.js, so WebXR VR is the existing renderer with `xr.enabled`: walk the
-piece at true scale (the site/vantage work already uses real metres). AR on a phone is WebXR hit-test
-(Android Chrome) plus a USDZ export for iOS: stand in the real room and see the piece at scale. The
-deeper AR use is the one Phase 2 names: the phone camera as the automapper, and later solving a
-projector's pose for the video half.
+**AR / VR.** ✅ The simulator is three.js, so WebXR is the existing renderer: the mm world sits in a
+group scaled to metres and placed; *vr* stands you at the piece's floor centre (a trigger steps the
+show, the sticks walk and snap-turn); *ar* on a phone draws a reticle from the hit-test and a tap puts
+the piece's floor centre there, facing you (`?xrscale=0.1` for a tabletop model). Bloom is off in XR.
+iOS has no WebXR AR — a USDZ export is the fallback, not done. The deeper AR use is the one Phase 2
+names: the phone camera as the automapper, and later solving a projector's pose for the video half.
 
 **Order:** spaces + validation ✅ → layers ✅ → `screen` fixture ✅ → the video sampler ✅ → the
-GLSL backend in the page ✅ → WebXR VR → AR preview → modulators (LFO / audio / MIDI) on params and cue
+GLSL backend in the page ✅ → WebXR VR ✅ → AR preview ✅ → modulators (LFO / audio / MIDI) on params and cue
 lists for the show-control mode.
 
 ## Prior art surveyed
