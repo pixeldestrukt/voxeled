@@ -29,7 +29,8 @@ export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 
     const { scene, show: showCfg } = resolveLayout(doc, { fixtures: FIXTURES, patterns: PATTERNS, baseDir: project.layoutDir || "", vfs });
     const scenes = showCfg?.scenes?.length ? showCfg.scenes : [{ name: "chase", render: PATTERNS.ribbonChase() }];
     const show = createShow({ scenes, holdS: showCfg?.holdS ?? 4, fadeS: showCfg?.fadeS ?? 2.5, control });
-    scene.meta.show = { scenes: show.names, single: false };
+    scene.meta.show = { scenes: show.names, single: false, warnings: showCfg?.warnings || [] };
+    for (const w of showCfg?.warnings || []) console.warn("VOXELED_SHOW_WARN", w);
     // the viewer fetches structures / vantage imagery by url: object URLs from the memory vfs
     for (const s of scene.meta.structures || []) s.url = vfs.url(s.file);
     for (const v of scene.meta.vantages || []) { if (v.image) v.image.url = vfs.url(v.image.file); if (v.cube) for (const f of Object.values(v.cube)) f.url = vfs.url(f.file); }

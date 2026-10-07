@@ -107,6 +107,36 @@ merge: { mode: priority, fallback: show, timeoutMs: 1000 }
 
 Details and the wire behaviour: [interop/protocols.md](interop/protocols.md#inputs-and-merge--several-streams-driving-one-piece).
 
+## Show — scenes, layers, spaces
+
+```yaml
+show:
+  holdS: 6                                                        # seconds per scene
+  fadeS: 2.5                                                      # crossfade
+  scenes:
+    - { name: rising, pattern: planeSweep, params: { speedMM: 400 } }
+    - name: night                                                 # a stack, bottom to top
+      layers:
+        - { pattern: plasma }                                     # on: all
+        - { pattern: helix, on: { space: cylinder }, blend: add, opacity: 0.8 }
+        - { pattern: comet, on: { fixture: ropes }, blend: max }
+```
+
+| field | default | meaning |
+|---|---|---|
+| `pattern`, `params` | — | one pattern over every pixel (a scene), or one layer's |
+| `layers` | — | a list of `{ pattern, params, on, blend, opacity }`, rendered bottom to top |
+| `on` | `all` | `{ fixture: name \| [names] }` · `{ instance: name \| [names] }` · `{ space: cylinder }` |
+| `blend` | `over` | `over` (replace) · `add` · `max` · `multiply` · `screen` |
+| `opacity` | 1 | scales the layer's contribution |
+
+A pattern declares the **spaces** it reads (`needs`: `world`, `volume`, `fixture`, `strand`, `cylinder`),
+a fixture the spaces it provides (`meta.spaces`: a baked `.vxl.json` may carry `meta.spaces`; without it,
+`fixture` plus `strand` if any pixel has one). Resolving the layout **warns** (`show.warnings`) about a scene or
+layer whose pattern reads a space a selected fixture lacks — the pattern degrades there (flat; one
+strand per instance; a helix becomes a chase) — naming the fixture and the `on:` that fixes it; a
+space with no degrade is refused.
+
 ## Controls — the piece's own buttons and the state it reports
 
 `meta.controls` (from the layout's `controls:`) describes a physical interface as data, so any

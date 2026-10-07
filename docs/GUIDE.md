@@ -162,6 +162,43 @@ three ropes per tube — so the wiring reads at a glance), `solid` (one colour: 
 A pattern is `(pixel, t, ctx) → [r, g, b]` over the pixel's world position/normal — add your own in
 `patterns.mjs`.
 
+**Spaces — what a pattern is written against.** Every pattern declares the coordinate spaces it
+reads (`pattern.needs`; `SPACES` in `patterns.mjs`) and every fixture the spaces it provides
+(`meta.spaces`); the layout checks each scene against the fixtures it runs on when it is applied:
+
+| space | the pixel's | provided by |
+|---|---|---|
+| `world` | `p` (mm), `n` | everything |
+| `volume` | `p` normalised to the piece's bounding box | everything |
+| `fixture` | `s` / `v` along and across the fixture, `ctx.local` | panels, strips, imports (a `dot` degrades to flat) |
+| `strand` | which string (`px.strand`), where along it | ropes, rolled panels, baked pieces — a fixture without strands degrades to one strand |
+| `cylinder` | `v` around, `s` along, radial normals | tubes — elsewhere `v` = 0, so a `helix` is a chase, not a spiral |
+
+So a world-space pattern is general; a cylinder-space one is specialised, and says so. A scene whose
+pattern reads a space some fixture lacks still resolves — the pattern **degrades** there as the
+table says — but the layout carries a **warning** naming the pattern, the fixture and the fix
+(`show.warnings`; the hub prints it, the page logs `VOXELED_SHOW_WARN`). A space with no
+degrade (none yet; a screen's uv will be the first) is refused outright.
+
+**Layers — generic underneath, specialised where it fits.** A scene can be a stack instead of one
+pattern:
+
+```yaml
+scenes:
+  - name: night
+    layers:                                                        # bottom to top
+      - { pattern: plasma }                                        # on: all (default)
+      - { pattern: helix, on: { space: cylinder }, blend: add }    # only on fixtures that provide the cylinder space
+      - { pattern: comet, on: { fixture: ropes }, blend: max, opacity: 0.8 }
+      - { pattern: solid, on: { instance: [c1, c2] }, params: { hue: 0.1 } }
+```
+
+`on:` selects the pixels a layer renders: `all`, `{ fixture: name | [names] }`, `{ instance: name |
+[names] }`, `{ space: cylinder }` (every fixture providing that space). `blend:` is how it lands on
+what is below — `over` (replace, the default) · `add` · `max` · `multiply` · `screen`; `opacity`
+scales it. Pixels no layer covers are black. The space check is per layer, against the fixtures it
+selects — so narrowing a layer's `on:` is how the warning goes away.
+
 A page's pattern bar (or `GET /control?scene=<name|index>`, or `{ "type": "control", "scene": … }` on
 the bus) **pins** a scene: the show crossfades from whatever is on to it over `fadeS`, then holds it.
 `mode=auto` resumes the cycle.

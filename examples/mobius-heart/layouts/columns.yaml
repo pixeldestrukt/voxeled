@@ -30,3 +30,7 @@ show:
     - { name: drops,                   pattern: drops }
     - { name: planes rising (world),   pattern: planeSweep, params: { speedMM: 400, spacingMM: 1200, widthMM: 250 } }
     - { name: rings racing around,     pattern: helix,      params: { turns: 2, pitch: 0, speed: 1.5, width: 0.25, hue: 0.0, hueAlong: 0.6 } }
+    - name: night (layers)                          # a stack: plasma under, a helix added only where a tube provides the cylinder space
+      layers:
+        - { pattern: plasma, params: { speed: 0.3, sat: 0.6 } }
+        - { pattern: helix, on: { space: cylinder }, blend: add, opacity: 0.8, params: { turns: 1, pitch: 2, width: 0.2, hue: 0.12 } }

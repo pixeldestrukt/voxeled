@@ -68,7 +68,8 @@ function build(doc) {
   const { scene, show: showCfg, resolved } = resolveLayout(doc, { fixtures: FIXTURES, patterns: PATTERNS, baseDir: path.dirname(layoutPath) });
   const scenes = showCfg?.scenes?.length ? showCfg.scenes : [{ name: "chase", render: PATTERNS.ribbonChase() }];
   const show = createShow({ scenes, holdS: showCfg?.holdS ?? 4, fadeS: showCfg?.fadeS ?? 2.5, control });
-  scene.meta.show = { scenes: show.names, single: !!single };
+  scene.meta.show = { scenes: show.names, single: !!single, warnings: showCfg?.warnings || [] };
+  for (const w of showCfg?.warnings || []) console.warn("show:", w);
   return { scene, show, shade: single ? single() : show.shade, resolved };
 }
 

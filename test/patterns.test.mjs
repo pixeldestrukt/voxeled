@@ -49,7 +49,7 @@ ok(bv > 0.5 && Math.min(...best) < bv * 0.4, `drops: when the drop passes ring 0
 
 const cols = parseYAML(readFileSync("examples/mobius-heart/layouts/columns.yaml", "utf8"));
 const r = resolveLayout(cols, { fixtures: FIXTURES, patterns: PATTERNS, baseDir: "examples/mobius-heart/layouts" });
-ok(r.show.scenes.length === 6, "columns.yaml: the six-scene show resolves");
+ok(r.show.scenes.length === 7, "columns.yaml: the seven-scene show resolves (six patterns + a layered one)");
 for (const sc of r.show.scenes) { const c = sc.render(r.scene.pixels[100], 1.5, { scene: r.scene, frame: 1 }); ok(c.length === 3 && c.every((x) => x >= 0 && x <= 1), `scene "${sc.name}" renders in range`); }
 
 console.log(`\n${fail === 0 ? "✅" : "❌"} patterns: ${pass} passed, ${fail} failed`);

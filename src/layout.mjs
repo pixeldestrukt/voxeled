@@ -195,15 +195,7 @@ export function resolveLayout(doc, { fixtures = {}, patterns = {}, baseDir = nul
     },
   });
 
-  let show = null;
-  if (doc.show) {
-    const scenes = (doc.show.scenes || []).map((sc, k) => {
-      const make = patterns[sc.pattern];
-      if (!make) throw new Error(`scene #${k} uses unknown pattern "${sc.pattern}" (have: ${Object.keys(patterns).join(", ")})`);
-      return { name: sc.name || sc.pattern, render: make(sc.params || {}) };
-    });
-    show = { scenes, holdS: doc.show.holdS ?? 4, fadeS: doc.show.fadeS ?? 2.5 };
-  }
+  const show = doc.show ? resolveShow(doc.show, { patterns, scene, instances, fixDefs }) : null;
 
   return { scene, show, resolved: instances };
 }
@@ -224,6 +216,97 @@ export function resolveInputs(list) {
     if (protocol === "sacn" && inp.universes) out.universes = inp.universes;
     return out;
   });
+}
+
+// ── the show: scenes, each a pattern or a stack of LAYERS ──────────────────────────────────
+//   show:
+//     holdS: 6
+//     fadeS: 2.5
+//     scenes:
+//       - { name: rising, pattern: planeSweep, params: { speedMM: 400 } }      # one pattern everywhere
+//       - name: night                                                          # layers, bottom to top
+//         layers:
+//           - { pattern: plasma }                                              # on: all (default)
+//           - { pattern: helix, on: { space: cylinder }, blend: add }          # only where it fits
+//           - { pattern: comet, on: { fixture: ropes }, blend: max, opacity: 0.8 }
+// `on:` picks the pixels a layer renders: `all`, `{ fixture: name | [names] }`, `{ instance: name |
+// [names] }`, `{ space: cylinder }` (every fixture providing that space). `blend:` is how the layer
+// lands on what's below — over (replace, default) · add · max · multiply · screen; `opacity` scales
+// it. Pixels no layer covers are black.
+// Every pattern declares the coordinate spaces it reads (`pattern.needs`, src/patterns.mjs SPACES)
+// and every fixture the spaces it provides (`meta.spaces`); a scene is checked against the fixtures
+// it runs on: a space the fixture lacks is a WARNING (show.warnings — the pattern degrades, e.g. a
+// helix on a strip is a chase) with the fix in the message, or an ERROR for a space with no
+// degrade. So "helix on a flat panel" is said out loud at apply time, not discovered on the LEDs.
+import { SPACES as SPACE_INFO } from "./patterns.mjs";
+const BLENDS = {
+  over: (a, b, o) => a + (b - a) * o,
+  add: (a, b, o) => a + b * o,
+  max: (a, b, o) => Math.max(a, b * o),
+  multiply: (a, b, o) => a * (1 - o + b * o),
+  screen: (a, b, o) => a + (1 - a) * b * o,
+};
+export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs = {} } = {}) {
+  const N = scene.pixels.length;
+  const fixtureOf = (k) => instances[k]?.fixtureName;
+  const spacesOf = (k) => instances[k]?.fixture?.meta?.spaces || [];
+  // which instances a layer's `on:` selects
+  function select(on, where) {
+    if (on == null || on === "all") return instances.map((_, k) => k);
+    const list = (x) => (Array.isArray(x) ? x.map(String) : [String(x)]);
+    if (typeof on !== "object") throw new Error(`${where}: on: must be "all" or { fixture | instance | space: … }, got ${JSON.stringify(on)}`);
+    let sel = instances.map((_, k) => k);
+    if (on.fixture != null) { const f = list(on.fixture); for (const n of f) if (!fixDefs[n]) throw new Error(`${where}: on.fixture "${n}" is not a fixture (have: ${Object.keys(fixDefs).join(", ")})`); sel = sel.filter((k) => f.includes(fixtureOf(k))); }
+    if (on.instance != null) { const f = list(on.instance); for (const n of f) if (!instances.some((i) => i.name === n)) throw new Error(`${where}: on.instance "${n}" is not an instance (have: ${instances.map((i) => i.name).join(", ")})`); sel = sel.filter((k) => f.includes(instances[k].name)); }
+    if (on.space != null) { const sp = String(on.space); if (!SPACE_INFO[sp]) throw new Error(`${where}: on.space "${sp}" — spaces are ${Object.keys(SPACE_INFO).join(", ")}`); if (!SPACE_INFO[sp].always) sel = sel.filter((k) => spacesOf(k).includes(sp)); }
+    return sel;
+  }
+  // a pattern's needs against the fixtures of the instances it runs on: one line per (pattern, fixture)
+  const warnings = [];
+  function check(make, patternName, sel, where, layered) {
+    for (const need of make.needs || []) {
+      const info = SPACE_INFO[need]; if (!info || info.always) continue;
+      const missing = [...new Set(sel.filter((k) => !spacesOf(k).includes(need)).map(fixtureOf))];
+      for (const fx of missing) {
+        const inst = instances.find((i) => i.fixtureName === fx)?.name;
+        const fix = `${layered ? "narrow the layer's" : "make it a layer with"} on: { space: ${need} } or on: { fixture: … } so it runs only where it fits (GUIDE §3.5)`;
+        const msg = `${where}: "${patternName}" reads the ${need} space (${info.what}) — fixture "${fx}" (${fixDefs[fx]?.type || "?"}, e.g. instance "${inst}") doesn't provide it`;
+        if (info.degrade) warnings.push(`${msg}: it degrades there (${info.degrade}); ${fix}`);
+        else throw new Error(`${msg}; ${fix}`);
+      }
+    }
+  }
+  const mkLayer = (L, where, layered) => {
+    const make = patterns[L.pattern];
+    if (!make) throw new Error(`${where} uses unknown pattern "${L.pattern}" (have: ${Object.keys(patterns).join(", ")})`);
+    const sel = select(L.on, where);
+    check(make, L.pattern, sel, where, layered);
+    const blend = L.blend || "over"; if (!BLENDS[blend]) throw new Error(`${where}: blend "${blend}" — blends are ${Object.keys(BLENDS).join(", ")}`);
+    const opacity = L.opacity == null ? 1 : Math.max(0, Math.min(1, +L.opacity));
+    const mask = new Uint8Array(N); const on = new Set(sel); for (let i = 0; i < N; i++) if (on.has(scene.pixels[i].inst || 0)) mask[i] = 1;
+    return { pattern: L.pattern, render: make(L.params || {}), on: L.on == null ? "all" : L.on, blend, opacity, mask, count: mask.reduce((a, b) => a + b, 0), needs: make.needs || [] };
+  };
+  const scenes = (showDoc.scenes || []).map((sc, k) => {
+    const name = sc.name || sc.pattern || `scene ${k + 1}`;
+    if (sc.layers) {
+      if (!Array.isArray(sc.layers) || !sc.layers.length) throw new Error(`scene "${name}": layers: must be a non-empty list`);
+      const layers = sc.layers.map((L, j) => mkLayer(L, `scene "${name}" layer #${j + 1}`, true));
+      const render = (px, t, ctx) => {
+        let r = 0, g = 0, b = 0;
+        for (const L of layers) {
+          if (!L.mask[px.i]) continue;
+          const c = L.render(px, t, ctx), f = BLENDS[L.blend], o = L.opacity;
+          r = f(r, c[0], o); g = f(g, c[1], o); b = f(b, c[2], o);
+        }
+        return [r < 0 ? 0 : r > 1 ? 1 : r, g < 0 ? 0 : g > 1 ? 1 : g, b < 0 ? 0 : b > 1 ? 1 : b]; // blends can overshoot; a pattern's contract is 0..1
+      };
+      return { name, render, layers: layers.map(({ pattern, on, blend, opacity, count, needs }) => ({ pattern, on, blend, opacity, count, needs })) };
+    }
+    if (!sc.pattern) throw new Error(`scene "${name}" (#${k + 1}): needs a pattern: or layers:`);
+    const L = mkLayer(sc, `scene "${name}"`, false);
+    return { name, render: L.render, needs: L.needs };
+  });
+  return { scenes, holdS: showDoc.holdS ?? 4, fadeS: showDoc.fadeS ?? 2.5, warnings };
 }
 
 // controls: the physical interface of a piece, as data the viewer can draw and any bus client can

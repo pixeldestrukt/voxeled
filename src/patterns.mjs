@@ -285,4 +285,24 @@ export function solid({ rgb = null, hue = 0, sat = 0, value = 0.85 } = {}) {
   return () => c;
 }
 
+// ── spaces: what a pattern is written against ─────────────────────────────────────────────
+// A pattern reads a pixel in one or more COORDINATE SPACES. Declaring them (`pattern.needs`) is
+// what makes "how general is this pattern" explicit: a world-space pattern runs on anything; a
+// cylinder-space one only means something on a tube. The layout checks a scene's needs against
+// the fixtures it runs on (src/layout.mjs) — and a layer's `on:` selector is how a specialised
+// pattern runs only where it fits. Every space has a `degrade`: what the pattern reads on a fixture
+// that doesn't provide it (a fixture without strands is one strand; a helix on a strip is a chase).
+// Resolving a layout WARNS about a degraded space (show.warnings, logged by the hub and the page)
+// and REFUSES a space with `degrade: null` — none today; a `screen` uv space will be the first.
+export const SPACES = {
+  world:    { what: "world position and normal (px.p mm, px.n)", always: true },
+  volume:   { what: "position normalised to the piece's bounding box", always: true },
+  fixture:  { what: "along / across the fixture (px.s, px.v) and its local frame (ctx.local)", degrade: "flat: s = v = 0" },
+  strand:   { what: "which string of the fixture (px.strand) and where along it", degrade: "the whole instance is one strand" },
+  cylinder: { what: "around (px.v, 0→1) and along (px.s) a tube, radial normals", degrade: "v = 0: along only — a chase, not a spiral" },
+};
+ribbonChase.needs = ["fixture"]; planeSweep.needs = ["world"]; worldWipe.needs = ["world"]; normalRGB.needs = ["world"];
+spotlight.needs = ["world"]; projector.needs = ["world"]; helix.needs = ["cylinder"]; lantern.needs = ["world"]; swirl.needs = ["world"]; drops.needs = ["cylinder"];
+point.needs = ["world"]; paint.needs = ["world"]; comet.needs = ["strand"]; plasma.needs = ["strand"]; fire.needs = ["strand"]; strands.needs = ["strand"]; solid.needs = [];
+
 export const PATTERNS = { ribbonChase, worldWipe, planeSweep, normalRGB, spotlight, projector, helix, lantern, swirl, drops, point, paint, comet, plasma, fire, strands, solid };

@@ -70,6 +70,70 @@ CAD exports also routinely ship **flipped/inconsistent winding**, so any surface
 - **Phase 4 — hosted & public**: run the hub behind a URL so an installation has an address. (a) **Public interaction**: a QR code on the piece → a phone web page (no app) on the hub's control seam (`/control` + the jack-in) — scene picks/triggers, crossfader, colour, and *spatial* input ("a wave from where you stand" — the map knows where that is); per-piece, rate-limited, moderated. Lineage: QR-driven interaction on earlier pieces, now built in. (b) **Collaborative pattern design**: patterns are pure `f(pixel, t, ctx)` and the viewer/simulator run in the browser, so collaborators author + preview against the real map in the simulator in a tab, then submit a scene; sandboxed in a Worker, versioned, previewed before it reaches an LED. Invariant: the local hub keeps driving the LEDs and falls back to its own show if the link drops — hosted is control-plane + preview + public face, never the light path.
 - **Phase 5 — site context** (roadmap only): visualize an installation in place — e.g. from a Google Street View vantage. Key enabler: a **geo-anchor** in the layout (`site: { lat, lon, alt, headingDeg }`, mm frame → local ENU → WGS84) so any georeferenced backdrop aligns. Routes: (1) **panorama photo-match** — a 360° site photo or a fetched Street View panorama as an equirectangular background sphere, camera at the pano's position/heading, the piece rendered by the simulator on top, occluded by site CAD/scan structures (Street View has no supported 3D-overlay API, so the pano is a backdrop, not the widget; mind Maps Platform terms for fetched imagery); (2) **Photorealistic 3D Tiles** (Google Map Tiles API, three.js via a 3D-Tiles renderer) — fly to street level in the real city model; (3) **site scan** (photogrammetry / LiDAR GLB) as a scene-level structure — no API, best occlusion fidelity. Open questions: pano camera calibration (FOV/heading from Street View metadata), lighting/time-of-day match, and whether the hosted phone page can show the same composite for the public.
 
+## The product — four ways a piece runs
+
+voxeled is becoming a general LED control product. The pieces it comes from ran in four modes at
+once, and the design has to hold all four without four code paths:
+
+| mode | what runs it | what it needs from the engine |
+|---|---|---|
+| **ambient** — hands-off, for months | the show: scenes cycling, `holdS`/`fadeS` | a map that's right, patterns that read on the real geometry, a hub that never stops, fallback when inputs die |
+| **show control** — cues, a timeline, a board | cues / timecode / OSC pinning scenes and setting params | pin + crossfade (done), params addressable by name, a clock, cue lists |
+| **live VJ** — hands on, a room, a night | the crossfader, layers, modulators, video in | layers with blends, a sampler for video/NDI/screen, LFOs/audio/MIDI on params, latency under a frame or two |
+| **participant** — the public touches it | buttons on the piece, a phone, a wand, a camera | `controls:`, trackers, join, inputs merged by priority, the hosted page |
+
+The one model under all four: a **scene is a field over the world** — a function of position, normal
+and the fixture's own coordinates — and every output, an LED or a texel, **samples** it. Modes
+differ only in what drives the field's parameters and which scene is up.
+
+## Patterns, video, XR — the field model
+
+**Spaces.** A pattern is `(pixel, t, ctx) → rgb`, which is a fragment shader's shape: pure, per-sample,
+attributes in. What was missing is the *vocabulary of coordinate spaces* a pattern is written
+against — that is where "generalise vs specialise" actually lives:
+
+| space | the pixel's | provided by |
+|---|---|---|
+| `world` | `p` (mm), `n` | everything |
+| `volume` | `p` normalised to the piece's bounding box | everything |
+| `fixture` | `s` / `v` along and across the fixture, `ctx.local` | panels, strips, imports |
+| `strand` | which string, where along it | ropes, rolled panels, baked pieces (degrades: a fixture without strands is one strand) |
+| `cylinder` | `v` around, `s` along, radial normals | tubes |
+
+A pattern declares `needs` (src/patterns.mjs `SPACES`), a fixture declares `meta.spaces`, and the
+layout checks every scene against the fixtures it runs on at apply time: *helix on a flat panel* is
+said out loud — a warning naming the fixture, how the pattern degrades there, and the fix (a space
+with no degrade is refused) — not a silent mess on the LEDs. ✅
+
+**Layers.** A scene is a stack: pattern + selector (`on: all | { fixture } | { instance } | { space }`)
++ blend (over · add · max · multiply · screen) + opacity. Generic patterns underneath, specialised ones
+only where they fit. This is layout-level, costs nothing per pixel beyond a mask, and is how MADRIX /
+TouchDesigner people already think. ✅
+
+**GLSL as a backend, not the language.** Patterns stay JavaScript — the hub has no GPU and JS is the
+source of truth. In the page, the same field can run on the GPU: every LED's attributes packed into
+float textures, the pattern as a GLSL function over an N-texel target, read back. The page already
+pushes colours through a DataTexture, so the plumbing is half there. A JS-subset-to-GLSL transpile is
+plausible later; a custom shader language is not worth it.
+
+**Video and LEDs in one scene.** Pixels and texels are both samples of the field:
+- *video into LEDs* — a `sampler` layer: source = a video, canvas, camera, screen capture (page) or
+  ffmpeg/NDI frames (hub); mapping = a projection from a camera pose (projection mapping — `projector`
+  already sketches it), fixture uv, or a world box.
+- *screens as fixtures* — a `screen` fixture is a quad or mesh with a resolution; the layer stack
+  renders it per texel; it shows in the simulator and goes out as a fullscreen window / NDI. An LED
+  wall and a projector surface share one spatial pattern. This is where the GLSL backend earns its keep.
+
+**AR / VR.** The simulator is three.js, so WebXR VR is the existing renderer with `xr.enabled`: walk the
+piece at true scale (the site/vantage work already uses real metres). AR on a phone is WebXR hit-test
+(Android Chrome) plus a USDZ export for iOS: stand in the real room and see the piece at scale. The
+deeper AR use is the one Phase 2 names: the phone camera as the automapper, and later solving a
+projector's pose for the video half.
+
+**Order:** spaces + validation ✅ → layers ✅ → `screen` fixture + a video sampler on the JS path → the
+GLSL backend in the page → WebXR VR → AR preview → modulators (LFO / audio / MIDI) on params and cue
+lists for the show-control mode.
+
 ## Prior art surveyed
 
 - **xLights** — open C++ sequencer; Model/submodel/group system; render-buffer-style maps effects onto geometry but is 2D-buffer-first; `.xmodel`/`.xsq`/`.fseq` (clean author/play split); E1.31/Art-Net/DDP/ZCPP; FPP runtime; REST automation aimed at the build pipeline. *Learn:* author/play split, controller auto-addressing, submodels/groups. *Avoid:* 2D-buffer mental model, closed C++ effects.

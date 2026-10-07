@@ -69,6 +69,22 @@ show:
 Add a scene = add a line, **apply**. The crossfader's A/B labels follow the scene names, and the
 pattern bar (`viewer/?…&ui=bar`) lists them in order. To start a page on one: `?scene=helix`.
 
+**Layers.** A scene can be a stack — a generic pattern under, a specialised one only where it fits:
+
+```yaml
+    - name: night
+      layers:
+        - { pattern: plasma }                                        # everywhere
+        - { pattern: helix, on: { space: cylinder }, blend: add }    # only on tubes
+        - { pattern: comet, on: { fixture: ropes }, blend: max, opacity: 0.8 }
+```
+
+`on:` is `all`, `{ fixture: … }`, `{ instance: … }` or `{ space: … }`; `blend:` is over · add · max ·
+multiply · screen. Every pattern says which **space** it reads (world, volume, fixture, strand,
+cylinder) and apply checks it against the fixtures: `helix` (a cylinder pattern) on a flat panel
+still runs, as a chase, but the layout carries a warning with the fix — put it on a layer with
+`on:`. [GUIDE §3.5](GUIDE.md#35-show-and-patterns).
+
 ## 3. Fixtures — bringing LEDs in
 
 A fixture is a *kind* of thing; instances place it (many times, if you like). Pick the route that
@@ -123,10 +139,10 @@ spiral wraps a tube. Use them by name in `show:`; parameters in `params:`.
 | `ribbonChase` | a hue chase along each fixture's data order | `loops`, `speed`, `sat` |
 | `planeSweep` | planes of light rising through everything | `speedMM`, `spacingMM`, `widthMM`, `hue` |
 | `worldWipe` | a plane wiping along an axis; `space: world` keeps the real gaps | `axis`, `speedMM`, `spacingMM`, `widthMM`, `space`, `hue` |
-| `helix` | a barber-pole stripe winding around a tube as it climbs (`pitch: 0` = rings) | `turns`, `pitch`, `speed`, `width`, `hue`, `hueAlong`, `dir` |
+| `helix` | a barber-pole stripe winding around a tube as it climbs (`pitch: 0` = rings) — *cylinder* | `turns`, `pitch`, `speed`, `width`, `hue`, `hueAlong`, `dir` |
 | `lantern` | a lamp carried through the room; sides facing it glow | `path: orbit\|eight`, `radiusMM`, `heightMM`, `speed`, `falloffMM`, `ambient` |
 | `swirl` | spiral arms over the floor about the piece's centre | `arms`, `spacingMM`, `speed`, `twist`, `wrap` |
-| `drops` | drops falling down one side of each column | `rate`, `speed`, `lengthS`, `spin` |
+| `drops` | drops falling down one side of each column — *cylinder* | `rate`, `speed`, `lengthS`, `spin` |
 | `comet` | a comet bouncing down every strand with a tail | `speed`, `tail`, `hue`, `hueStep`, `ambient` |
 | `plasma` | layered sine fields along each strand | `speed`, `scale`, `hueDrift`, `sat` |
 | `fire` | heat injected at LED 0 climbing each string | `rate`, `cooling`, `seed` |
