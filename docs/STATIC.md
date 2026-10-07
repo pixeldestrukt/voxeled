@@ -31,6 +31,11 @@ text (apply / 💾 save); export/import a **bundle** (one JSON with the layout +
 to move a project between browsers or host it; and the remote hub connection. The builder (**E**)
 works exactly as against a hub — 💾 saves to IndexedDB instead of a file.
 
+On a phone (under 700 px) the HUD — scene, view buttons, crossfader — folds to its title line (tap
+it, or **H**, to open or fold it; it starts folded), the builder and project panels are sheets along
+the bottom with a close button, and in `?ui=bar` the bar and the piece's controls fold too
+([GUIDE §13.1](GUIDE.md#131-the-public-face-uibar-embedding)).
+
 ## Publish a piece (Thread)
 
 This is how dnuke.art/thread runs. Bake what's public — the pixels, with their normals, strands
