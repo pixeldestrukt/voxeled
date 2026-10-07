@@ -13,6 +13,7 @@ Drive real fixtures from *spatial* animations authored in **real-world units** �
 ## Documentation
 
 - **[Getting started](docs/START.md)** — your own LEDs in voxeled, from a first example to real output: strips, panels, tubes, CAD, placing, the simulator, patterns, the hub, sharing. Live at **[pixeldestrukt.github.io/voxeled](https://pixeldestrukt.github.io/voxeled/)**.
+- **[The editor](docs/EDITOR.md)** — working in the page (the **?** key): a new layout, scenes, bringing fixtures in from primitives or files, the patterns, saving and sharing.
 - **[Authoring guide](docs/GUIDE.md)** — the whole workflow: concepts, frames & units, the complete
   layout reference (fixture types, instances & generators, emitter, patch, show), getting geometry
   in, structures, paths & ropes, the builder, baking/export, running, a worked example (Thread), gotchas.

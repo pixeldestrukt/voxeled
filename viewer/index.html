@@ -13,7 +13,7 @@
     border: 1px solid var(--line); border-radius: 12px; padding: 12px 15px; font-size: 12.5px; line-height: 1.55;
     box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
   #hud { top: 12px; left: 12px; width: 250px; }
-  #hud h1, #build h1, #proj h1 { font-size: 12px; margin: 0 0 8px; letter-spacing: .4px; color: var(--pink); font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #hud h1, #build h1, #proj h1, #helpp h1 { font-size: 12px; margin: 0 0 8px; letter-spacing: .4px; color: var(--pink); font-weight: 700; text-transform: uppercase; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
   .panel h1 .x { background: none; border: 0; padding: 0 0 0 10px; color: var(--dim); font-size: 13px; font-weight: 400; letter-spacing: 0; text-transform: none; line-height: 1; } .panel h1 .x:hover { color: var(--ink); }
   #hud h1 { cursor: pointer; } #hud h1 .x::before { content: "▾"; display: inline-block; transition: transform .15s; } #hud.min h1 .x::before { transform: rotate(-90deg); }
   #hud.min > :not(h1) { display: none; } #hud.min h1 { margin: 0; } #hud.min h1 small { display: inline; } #hud h1 small { display: none; color: var(--dim); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -35,7 +35,11 @@
   #h-mode.sim { color: #ffcf4d; }
   /* builder */
   #build { top: 12px; right: 12px; width: 300px; }
-  #proj { top: 12px; left: 274px; width: 300px; max-height: calc(100vh - 24px); overflow: auto; }
+  #proj { top: 12px; left: 300px; width: 300px; max-height: calc(100vh - 24px); overflow: auto; }
+  #helpp { top: 12px; left: 300px; width: min(460px, calc(100vw - 300px)); max-height: calc(100vh - 24px); overflow: auto; }
+  #helpp[hidden] { display: none; } #helpp h2 { font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--pink); margin: 12px 0 4px; }
+  #helpp p { margin: 4px 0; } #helpp b { color: var(--ink); } #helpp kbd { font: inherit; font-weight: 700; color: var(--ink); } #helpp a { color: #ff8fb0; }
+  #helpp ol, #helpp ul { margin: 4px 0; padding-left: 18px; } #helpp li { margin: 2px 0; } #helpp code { background: #171c30; padding: 0 4px; border-radius: 4px; font-size: .92em; }
   #proj select, #proj textarea { width: 100%; box-sizing: border-box; background: #0d1020; color: #dfe4ff; border: 1px solid #2a3252; border-radius: 6px; font: inherit; padding: 4px 6px; }
   #proj textarea { font: 11px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; height: 180px; resize: vertical; }
   #proj .files { font-size: 11px; color: var(--dim); max-height: 90px; overflow: auto; }
@@ -48,7 +52,7 @@
      project panels are sheets along the bottom with a close button; the key help is hidden */
   @media (max-width: 700px) {
     #hud { width: auto; right: 12px; } #hud:not(.min) { max-height: calc(100vh - 24px); overflow: auto; }
-    #build, #proj { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 72vh; overflow: auto; border-radius: 14px 14px 0 0; border-bottom: 0; }
+    #build, #proj, #helpp { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 72vh; overflow: auto; border-radius: 14px 14px 0 0; border-bottom: 0; }
     #help { display: none; }
   }
   #build .sel { font-weight: 700; color: var(--ink); font-size: 13px; margin-bottom: 2px; }
@@ -64,7 +68,7 @@
   #b-status.dirty { color: #ffcf4d; }
   /* presentation (?ui=bar): a pattern bar along the bottom, the live indicator top-right, the piece's
      own controls top-left — the HUD/help stay out of the way; ?embed=1 hides everything */
-  body.bar #hud, body.bar #help, body.embed #hud, body.embed #help, body.embed #bar, body.embed #livehint, body.embed #livebanner, body.embed #ctl, body.embed #livepanel { display: none; }
+  body.bar #hud, body.bar #help, body.bar #helpp, body.embed #hud, body.embed #help, body.embed #helpp, body.embed #bar, body.embed #livehint, body.embed #livebanner, body.embed #ctl, body.embed #livepanel { display: none; }
   #bar { position: fixed; z-index: 10; right: clamp(12px, 4vw, 40px); bottom: clamp(14px, 4vh, 36px); display: none; flex-wrap: wrap; justify-content: flex-end; gap: 4px 18px; pointer-events: auto; }
   body.bar #bar { display: flex; }
   #bar button { background: none; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 4px 0; color: #fff; opacity: .45; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; transition: opacity .2s, border-color .2s; }
@@ -143,7 +147,7 @@
   <hr/>
   <div class="btns" id="view" style="margin-top:0">
     <button id="v-sim" title="S">sim</button><button id="v-bloom" title="B">bloom</button>
-    <button id="v-model" title="M">model</button><button id="v-normals" title="N">normals</button><button id="v-build" title="E">builder</button><button id="v-stand" title="V — stand at a vantage (site context)" hidden>stand</button><button id="v-proj" title="P — this page's project: layout + the files you dropped in (kept in this browser)" hidden>project</button>
+    <button id="v-model" title="M">model</button><button id="v-normals" title="N">normals</button><button id="v-build" title="E">builder</button><button id="v-help" title="? — how to work in the editor">help</button><button id="v-stand" title="V — stand at a vantage (site context)" hidden>stand</button><button id="v-proj" title="P — this page's project: layout + the files you dropped in (kept in this browser)" hidden>project</button>
   </div>
   <hr/>
   <div id="xf">
@@ -211,7 +215,7 @@
   <div class="row"><span>Open</span><span id="p-name">—</span></div>
   <div class="lab">projects in this browser · examples</div>
   <select id="p-list"></select>
-  <div class="btns"><button id="p-open">open</button><button id="p-saveas">save as…</button><button id="p-del">delete</button></div>
+  <div class="btns"><button id="p-new" title="a fresh layout: one panel, two scenes">new</button><button id="p-open">open</button><button id="p-saveas">save as…</button><button id="p-del">delete</button></div>
   <div class="lab" title="the models, structures, panoramas the layout refers to — drop files anywhere on the page, or add them here. They stay in this browser (IndexedDB), nothing is uploaded.">files</div>
   <div class="files" id="p-files">—</div>
   <div class="btns"><button id="p-add">＋ add files…</button><input id="p-add-input" type="file" multiple hidden /></div>
@@ -224,9 +228,31 @@
   <div class="btns"><input id="p-ws" placeholder="ws://192.168.1.20:8080/bus" style="flex:2" /><button id="p-ws-go">connect</button></div>
   <div id="p-status"></div>
 </div>
+<div id="helpp" class="panel" hidden>
+  <h1><span>? help</span><button class="x" id="hp-close" aria-label="close" title="?">×</button></h1>
+  <p>A <b>layout</b> is the YAML in the <b>project</b> panel (<kbd>P</kbd>): fixtures (kinds of thing), instances (where they are), structures, the <b>show</b> (scenes). The page runs the real hub, so what you see is what a controller gets. Everything stays in this browser.</p>
+  <h2>a new layout</h2>
+  <ol>
+    <li><b>project → new</b>: a starter layout (one panel, two scenes). Or open an <b>example</b> and <i>save as…</i>, or drop a <code>.yaml</code> on the page.</li>
+    <li>Edit the text, <b>apply</b> (errors show below it), <b>💾 save</b>. Millimetres, Y up; <code>pos</code> places, <code>rotDeg</code> turns.</li>
+  </ol>
+  <h2>scenes</h2>
+  <p>A scene is a pattern + params under a name in <code>show: scenes:</code>; the show cycles them (<code>holdS</code>, <code>fadeS</code>), the crossfader scrubs two by hand (<kbd>[</kbd> <kbd>]</kbd>, <kbd>A</kbd> auto). Add a line, apply.</p>
+  <h2>fixtures</h2>
+  <ul>
+    <li><b>Type one</b>: <code>matrix</code> (cols, rows, pitchMM, wiring), <code>rope</code> (a path, count or pitchMM), <code>tube</code>, <code>dot</code>.</li>
+    <li><b>From a file</b>: drop it on the page, then <b>builder → new fixture from a file</b> — <code>mesh</code> (CAD with the chips modelled), <code>vxl</code> (baked from Blender / Grasshopper / <code>vox import</code>), <code>gltf</code>; give mm per unit.</li>
+    <li><b>Place</b>: <kbd>E</kbd> builder — click an instance, <kbd>T</kbd> move / <kbd>R</kbd> rotate, duplicate, ▦ array, ＋ add. Its <b>emitter</b> row is the look, its <b>output</b> row the patch.</li>
+  </ul>
+  <h2>patterns</h2>
+  <p>Functions of each LED's real position and normal: <code>ribbonChase planeSweep worldWipe helix lantern swirl drops comet plasma fire strands solid normalRGB spotlight projector</code>. Your own go in <code>src/patterns.mjs</code> (the Node hub, or your own copy of this page).</p>
+  <h2>keys</h2>
+  <p><kbd>H</kbd> hud · <kbd>P</kbd> project · <kbd>E</kbd> builder · <kbd>S</kbd> sim · <kbd>B</kbd> bloom · <kbd>M</kbd> model · <kbd>N</kbd> normals · <kbd>R</kbd> ropes · <kbd>O</kbd> orbit · <kbd>V</kbd> stand · <kbd>?</kbd> this</p>
+  <p><a href="https://pixeldestrukt.github.io/voxeled/docs/EDITOR.html" target="_blank" rel="noopener">the full editor guide ↗</a> · <a href="https://pixeldestrukt.github.io/voxeled/docs/START.html" target="_blank" rel="noopener">getting started ↗</a> · <a href="https://pixeldestrukt.github.io/voxeled/docs/GUIDE.html" target="_blank" rel="noopener">authoring guide ↗</a></p>
+</div>
 <div id="drop">drop files to add them to the project · a .yaml becomes the layout · a bundle .json opens a project</div>
 
-<div id="help">drag orbit · scroll zoom · <b>H</b> hud · <b>E</b> builder · <b>S</b> sim · <b>B</b> bloom · <b>M</b> model · <b>N</b> normals · <b>R</b> ropes · <b>O</b> orbit · <b>[</b> <b>]</b> crossfade · <b>A</b> auto · <b>P</b> project</div>
+<div id="help">drag orbit · scroll zoom · <b>?</b> help · <b>H</b> hud · <b>E</b> builder · <b>S</b> sim · <b>B</b> bloom · <b>M</b> model · <b>N</b> normals · <b>R</b> ropes · <b>O</b> orbit · <b>[</b> <b>]</b> crossfade · <b>A</b> auto · <b>P</b> project</div>
 
 <div id="bar"></div>
 <div id="livehint"><span class="dot" id="l-dot"></span><span id="l-text"></span></div>
@@ -882,6 +908,26 @@ $("p-open").addEventListener("click", async () => {
     pstatus(p.source ? `opened example ${p.name} — save as… to keep a copy` : `opened ${p.name}`);
   } catch (e) { pstatus(`✗ ${e.message}`); }
 });
+const STARTER_LAYOUT = `# a starter layout — see ? help · millimetres, Y up
+name: my-piece
+fixtures:
+  panel: { type: matrix, params: { cols: 32, rows: 8, pitchMM: 10, wiring: columns, start: top-left } }
+instances:
+  - { fixture: panel, name: panel-1, pos: [0, 1200, 0] }
+show:
+  holdS: 6
+  fadeS: 2.5
+  scenes:
+    - { name: chase, pattern: ribbonChase }
+    - { name: wipe, pattern: worldWipe, params: { axis: 0, space: world } }
+`;
+$("p-new").addEventListener("click", async () => {
+  const name = prompt("new project name", "my-piece"); if (!name) return;
+  try {
+    await openProject({ name: name.trim(), layout: STARTER_LAYOUT, layoutName: "layout.yaml", layoutDir: "", files: new Map(), source: null });
+    await project.onSave(project); pstatus(`new project "${project.name}" — edit the layout, apply, save`);
+  } catch (e) { pstatus(`✗ ${e.message}`); }
+});
 $("p-saveas").addEventListener("click", async () => {
   const name = prompt("project name", project.source ? project.name : project.name + "-copy"); if (!name) return;
   project = { ...project, name: name.trim(), source: null, layout: $("p-yaml").value };
@@ -1327,6 +1373,9 @@ $("v-model").addEventListener("click", () => { modelMode = (modelMode + 1) % 3; 
 $("v-normals").addEventListener("click", () => { normalsOn = !normalsOn; applyMode(); });
 $("v-build").addEventListener("click", () => toggleBuilder(!buildOn));
 $("b-close").addEventListener("click", () => toggleBuilder(false));
+function toggleHelp(on = $("helpp").hidden) { $("helpp").hidden = !on; $("v-help").classList.toggle("on", on); if (on) console.log("VOXELED_HELP"); }
+$("v-help").addEventListener("click", () => toggleHelp()); $("hp-close").addEventListener("click", () => toggleHelp(false));
+if (qsOn("help", false)) toggleHelp(true);
 $("v-stand").addEventListener("click", cycleStand);
 
 addEventListener("keydown", (e) => {
@@ -1338,6 +1387,7 @@ addEventListener("keydown", (e) => {
   else if (k === "m") { modelMode = (modelMode + 1) % 3; applyMode(); }
   else if (k === "e") toggleBuilder(!buildOn);
   else if (k === "h") foldHud();
+  else if (e.key === "?") toggleHelp();
   else if (k === "v") cycleStand();
   else if (k === "p" && staticMode) toggleProject();
   else if (buildOn && k === "t") setGizmoMode("translate");

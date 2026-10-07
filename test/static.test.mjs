@@ -83,10 +83,11 @@ else {
     c.on("close", () => { clearTimeout(t); res(log); });
   });
   // 1. no hub, no params: the page notices there is no scene.json and runs the in-page hub on the columns example
-  let log = await run("sim=1");
+  let log = await run("sim=1&help=1");
   ok(log.includes("VOXELED_NO_HUB"), "a plain static server has no scene.json → the page switches to static mode by itself");
   ok(/VOXELED_LOCAL_HUB columns \d+ file\(s\) 6144 px/.test(log), "in-page hub built the columns example (fetched next to the page): 8 columns, 6,144 px");
   ok(log.includes("VOXELED_READY") && log.includes("VOXELED_SIM_READY") && !log.includes("VOXELED_ERROR"), "viewer + simulator ready, no errors");
+  ok(log.includes("VOXELED_HELP"), "?help=1 opens the editor help panel");
   // 2. the site example: structures + a panorama come from the fetched files (object URLs), standing at a vantage works
   log = await run("example=site&stand=sidewalk&bearing=0", "static-site");
   ok(/VOXELED_LOCAL_HUB site 3 file\(s\)/.test(log) && log.includes("VOXELED_STRUCTURES_READY 4 of 4") && log.includes("VOXELED_STAND_READY sidewalk"), "site example: 3 files fetched, 4 structures loaded from object URLs, backdrop up");
