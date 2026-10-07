@@ -77,12 +77,12 @@ export function makeMapping({ map = "uv", box = null, projector = null } = {}) {
     if (!(b.widthMM > 0)) throw new Error("sampler box: widthMM must be > 0");
     b.heightMM = b.heightMM > 0 ? b.heightMM : (b.widthMM * 9) / 16;
     const Rt = transpose3(eulerMatrix(b.rotDeg));
-    return { kind: "box", box: b, needs: ["world"], uv: (px) => { const l = matVec(Rt, sub(px.p, b.pos)); return [l[0] / b.widthMM + 0.5, 0.5 - l[1] / b.heightMM]; } };
+    return { kind: "box", box: b, Rt, needs: ["world"], uv: (px) => { const l = matVec(Rt, sub(px.p, b.pos)); return [l[0] / b.widthMM + 0.5, 0.5 - l[1] / b.heightMM]; } };
   }
   if (map === "projector") {
     const p = { pos: [0, 1500, 4000], target: [0, 1500, 0], fovDeg: 40, aspect: 16 / 9, facing: true, up: [0, 1, 0], ...(projector || {}) };
     const cam = lookAt({ eye: p.pos, target: p.target, fovDeg: p.fovDeg, aspect: p.aspect, up: p.up });
-    return { kind: "projector", projector: p, needs: ["world"], uv: (px) => { if (p.facing && facing(cam, px.p, px.n) <= 0) return null; const r = project(cam, px.p); return r.inFront ? [r.u, r.v] : null; } };
+    return { kind: "projector", projector: p, cam, needs: ["world"], uv: (px) => { if (p.facing && facing(cam, px.p, px.n) <= 0) return null; const r = project(cam, px.p); return r.inFront ? [r.u, r.v] : null; } };
   }
   throw new Error(`sampler map: "${map}" — uv | box | projector`);
 }

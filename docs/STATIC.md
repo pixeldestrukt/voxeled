@@ -84,6 +84,16 @@ the hub is `wss://` (or `localhost`): put the hub behind a TLS proxy for a hoste
 
 ## How it works
 
+**The GPU backend.** In the page the show also runs on the GPU: the pure patterns have GLSL twins
+(`src/gpu/glsl.mjs`), a show's scenes are composed into one fragment shader — every pixel a texel,
+attributes in float textures, layer masks as textures, video sources as textures, the two decks
+crossfaded in the shader — and `viewer/gpu.mjs` reads the target back into the hub's own frame
+bytes. Preview == output on either path (the static test gates GPU against JS at ≤ 1 of 255). A
+scene using a JS-only pattern (fire, paint, a lantern in a hand, visibility) renders in JS, per
+frame, so a show mixes both; the HUD's bus row says *gpu* when it's on. `?gpu=0` turns it off,
+`?gpucheck=1` logs `VOXELED_GPU_DIFF` (max / mean difference) once. Big screens and dense video are
+what it is for.
+
 `viewer/local.mjs` is the in-page hub: `memoryVFS` (src/vfs.mjs) holds the project's files;
 `resolveLayout({ vfs })`, `createShow`, `createHub` and `createSources` are the Node hub's modules
 unchanged; structures and panoramas reach three.js as object URLs. `viewer/store.mjs` is the

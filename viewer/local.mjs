@@ -17,15 +17,16 @@ import { eachArtNet, isArtNet, OP_DMX } from "../src/input/artnet-packet.mjs";
 import { memoryVFS, fetchVFS, dirname, joinPath } from "../src/vfs.mjs";
 import { createVideoRegistry } from "../src/video.mjs";
 import { createPageVideo } from "./video.mjs";
+import { createGPU } from "./gpu.mjs";
 
 export { FIXTURES, PATTERNS, parseYAML, stringifyYAML, collectFiles, memoryVFS, fetchVFS };
 
 // project: { name, layout (YAML text), layoutDir ("layouts" — what relative paths in it are
 // relative to), files: Map<name, Uint8Array> }
-export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 } = {}) {
+export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30, gpu: gpuWanted = true } = {}) {
   const control = { mode: "auto", fader: 0, a: 0, b: 1 };
   const vfs = memoryVFS(project.files || new Map(), { baseDir: project.layoutDir || "" });
-  const state = { doc: null, header: "", scene: null, show: null, hub: null, sources: null, remote: null };
+  const state = { doc: null, header: "", scene: null, show: null, hub: null, sources: null, remote: null, gpu: null, showCfg: null };
   // the sampler's image sources: files decode on their own, the camera / a display capture wait for a click (api.video.start)
   const videoRegistry = createVideoRegistry();
   const video = createPageVideo({ registry: videoRegistry, vfs, onStatus: (name, st, err) => onMessage?.({ type: "video-status", name, state: st, error: err }) });
@@ -39,11 +40,11 @@ export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 
     // the viewer fetches structures / vantage imagery by url: object URLs from the memory vfs
     for (const s of scene.meta.structures || []) s.url = vfs.url(s.file);
     for (const v of scene.meta.vantages || []) { if (v.image) v.image.url = vfs.url(v.image.file); if (v.cube) for (const f of Object.values(v.cube)) f.url = vfs.url(f.file); }
-    return { scene, show, shade: show.shade };
+    return { scene, show, shade: show.shade, showCfg };
   }
 
   function apply(doc, { announce = true } = {}) {
-    const { scene, show, shade } = build(doc); // throws → nothing changes
+    const { scene, show, shade, showCfg } = build(doc); // throws → nothing changes
     const t0 = state.hub?.t0 ?? null; // the show clock runs on across layout edits
     state.hub?.stop();
     state.doc = doc; state.scene = scene; state.show = show;
@@ -56,6 +57,16 @@ export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 
     state.hub = createHub({ scene, shade, fps, bus: { broadcast: (rgb) => onFrame?.(rgb) }, senders: [], sources: state.sources, video: videoRegistry, t0 });
     state.hub.start();
     video.sync(scene.meta.video || []);
+    // the GPU backend: the show's pure scenes as one shader; scenes with JS-only patterns fall back per frame
+    state.gpu?.dispose(); state.gpu = null; state.showCfg = showCfg;
+    if (gpuWanted && showCfg?.scenes?.length) {
+      try {
+        state.gpu = createGPU({ scene, scenes: showCfg.scenes, ctx: state.hub.ctx, registry: videoRegistry });
+        show.setFrameRenderer(state.gpu.render);
+        const on = state.gpu.scenes.filter((x) => x.gpu).length;
+        console.log("VOXELED_GPU", `${on}/${state.gpu.scenes.length}`, "scene(s) on the GPU", ...state.gpu.scenes.filter((x) => !x.gpu).map((x) => `· ${x.name}: ${x.why}`));
+      } catch (e) { state.gpu = null; console.warn("VOXELED_GPU_OFF", e.message); }
+    }
     if (announce) onScene?.(scene);
   }
   const nowT = () => (state.hub ? (Date.now() - state.hub.t0) / 1000 : 0);
@@ -156,8 +167,20 @@ export function createLocalHub({ project, onFrame, onScene, onMessage, fps = 30 
     get t() { return nowT(); },
     files: () => vfs.list(),
     video: { list: () => video.list(), start: (name) => video.start(name), stop: (name) => video.stop(name), status: () => videoRegistry.status() },
+    get gpu() { return state.gpu ? { on: true, scenes: state.gpu.scenes, frames: state.gpu.frames, grid: state.gpu.grid } : { on: false, scenes: [] }; },
+    // the two paths against each other: max |JS − GPU| per channel (0..255) for the decks at t — the gate
+    gpuCompare(t = nowT()) {
+      if (!state.gpu) return null;
+      const N = state.scene.count, js = new Uint8Array(N * 3), gpu = new Uint8Array(N * 3), ctx = state.hub.ctx;
+      const r = state.show.resolve(t); if (!state.gpu.render(r, t, ctx, gpu)) return { t, ...r, gpu: false };
+      const to255 = (x) => (x <= 0 ? 0 : x >= 1 ? 255 : (x * 255 + 0.5) | 0);
+      for (let k = 0; k < N; k++) { const c = state.show.shade(state.scene.pixels[k], t, ctx); js[k * 3] = to255(c[0]); js[k * 3 + 1] = to255(c[1]); js[k * 3 + 2] = to255(c[2]); }
+      let max = 0, sum = 0, worst = -1; for (let i = 0; i < N * 3; i++) { const d = Math.abs(js[i] - gpu[i]); sum += d; if (d > max) { max = d; worst = (i / 3) | 0; } }
+      const at = (buf, k) => [buf[k * 3], buf[k * 3 + 1], buf[k * 3 + 2]];
+      return { t, a: r.a, b: r.b, x: r.x, scene: state.show.names[r.x < 0.5 ? r.a : r.b], max, mean: sum / (N * 3), worst, worstJS: at(js, worst), worstGPU: at(gpu, worst), head: [0, 1, 2, 3].map((k) => ({ js: at(js, k), gpu: at(gpu, k) })) };
+    },
     addFile: (name, bytes) => { vfs.put(name, bytes); project.files?.set?.(name, bytes); },
-    stop: () => { state.hub?.stop(); disconnect(true); video.stopAll(); },
+    stop: () => { state.hub?.stop(); disconnect(true); video.stopAll(); state.gpu?.dispose(); state.gpu = null; },
   };
   return api;
 }

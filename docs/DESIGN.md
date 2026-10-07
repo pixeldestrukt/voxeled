@@ -110,11 +110,13 @@ with no degrade is refused) — not a silent mess on the LEDs. ✅
 only where they fit. This is layout-level, costs nothing per pixel beyond a mask, and is how MADRIX /
 TouchDesigner people already think. ✅
 
-**GLSL as a backend, not the language.** Patterns stay JavaScript — the hub has no GPU and JS is the
-source of truth. In the page, the same field can run on the GPU: every LED's attributes packed into
-float textures, the pattern as a GLSL function over an N-texel target, read back. The page already
-pushes colours through a DataTexture, so the plumbing is half there. A JS-subset-to-GLSL transpile is
-plausible later; a custom shader language is not worth it.
+**GLSL as a backend, not the language.** ✅ Patterns stay JavaScript — the hub has no GPU and JS is
+the source of truth. In the page the same field runs on the GPU: the pure patterns have GLSL twins
+(`src/gpu/glsl.mjs`), a show composes into one fragment shader (a function per scene, layer masks
+and video sources as textures, the crossfade in main), attributes in float textures over an N-texel
+target, read back into the same frame bytes (`viewer/gpu.mjs`). JS-only scenes (fire, paint, poses,
+visibility) fall back per frame. The static test gates GPU against JS at ≤ 1 of 255. A JS-subset-to-
+GLSL transpile is plausible later; a custom shader language is not worth it.
 
 **Video and LEDs in one scene.** Pixels and texels are both samples of the field:
 - *video into LEDs* ✅ — the `sampler` pattern (src/video.mjs): sources from a `video:` block — stills
@@ -135,7 +137,7 @@ deeper AR use is the one Phase 2 names: the phone camera as the automapper, and 
 projector's pose for the video half.
 
 **Order:** spaces + validation ✅ → layers ✅ → `screen` fixture ✅ → the video sampler ✅ → the
-GLSL backend in the page → WebXR VR → AR preview → modulators (LFO / audio / MIDI) on params and cue
+GLSL backend in the page ✅ → WebXR VR → AR preview → modulators (LFO / audio / MIDI) on params and cue
 lists for the show-control mode.
 
 ## Prior art surveyed

@@ -153,6 +153,7 @@ spiral wraps a tube. Use them by name in `show:`; parameters in `params:`.
 | `spotlight`, `projector` | only what a virtual camera sees; project a texture through it | `orbitDegPerSec`, `angleDeg`, `elevDeg`, `fovDeg` |
 | `point`, `paint` | a torch beam from a tracked wand / phone; a brush that leaves light | see [GUIDE §3.5](GUIDE.md#35-show-and-patterns) |
 | `testCard` | a grid, border, centre cross and tinted quadrants on a screen — align a projector | `cells`, `line`, `hue` |
+| *(GPU)* | in the page the pure patterns also run as one GPU shader (`?gpu=0` to turn it off); fire, paint, torch and visibility stay on the JS path | — |
 | `sampler` | an image source on the pixels: `map: uv` (the fixture as the image), `box` (a plane in the world), `projector` (a beam) — [GUIDE §3.8](GUIDE.md#38-video--the-sampler) | `source`, `map`, `box`, `projector`, `filter`, `outside`, `gain` |
 
 **Your own.** A pattern is code: `(pixel, t, ctx) → [r, g, b]` in 0..1, with `pixel.p` (mm),

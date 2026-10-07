@@ -40,6 +40,10 @@ export function createShow({ scenes, holdS = 4, fadeS = 2.5, control = null }) {
     return { a, b, x };
   }
 
+  // A frame-level renderer (the page's GPU backend, viewer/gpu.mjs): given the resolved decks, it
+  // fills the whole frame at once and returns true — or false, and the hub renders per pixel.
+  let frameRenderer = null;
+  function setFrameRenderer(f) { frameRenderer = f; }
   // The combined shade function the hub renders.
   function shade(px, t, ctx) {
     const { a, b, x } = resolve(t);
@@ -49,6 +53,7 @@ export function createShow({ scenes, holdS = 4, fadeS = 2.5, control = null }) {
     if (x >= 1) return cb;
     return [lerp(ca[0], cb[0], x), lerp(ca[1], cb[1], x), lerp(ca[2], cb[2], x)];
   }
+  shade.frame = (out, t, ctx) => (frameRenderer ? frameRenderer(resolve(t), t, ctx, out) : false);
 
   // The scene the eye sees at t (the deck with the larger share of the blend).
   const current = (t) => { const r = resolve(t); return r.x < 0.5 ? r.a : r.b; };
@@ -62,5 +67,5 @@ export function createShow({ scenes, holdS = 4, fadeS = 2.5, control = null }) {
     control.mode = "pin";
     return to;
   }
-  return { shade, resolve, current, pin, scenes, names: scenes.map((s) => s.name) };
+  return { shade, resolve, current, pin, scenes, names: scenes.map((s) => s.name), setFrameRenderer };
 }

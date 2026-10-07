@@ -217,7 +217,7 @@ export function paint({ from, radiusMM = 500, decayS = 6, hue = 0.85, hueDrift =
 // fixture) and `s` (0→1 along it). These patterns are per-strand — a comet down each rope, fire
 // climbing each string — modelled on the luxpi animations the Thread page ran. The strand table
 // (global strand ordinal, count, index along) is computed once per scene and cached on ctx.
-function strandTable(ctx) {
+export function strandTable(ctx) {
   if (ctx._strands) return ctx._strands;
   const px = ctx.scene.pixels, N = px.length;
   const ord = new Int32Array(N), idx = new Int32Array(N), keys = new Map(), counts = [];

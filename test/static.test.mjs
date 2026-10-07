@@ -83,18 +83,23 @@ else {
     c.on("close", () => { clearTimeout(t); res(log); });
   });
   // 1. no hub, no params: the page notices there is no scene.json and runs the in-page hub on the columns example
-  let log = await run("sim=1&help=1");
+  let log = await run("sim=1&help=1&gpucheck=1");
   ok(log.includes("VOXELED_NO_HUB"), "a plain static server has no scene.json → the page switches to static mode by itself");
   ok(/VOXELED_LOCAL_HUB columns \d+ file\(s\) 6144 px/.test(log), "in-page hub built the columns example (fetched next to the page): 8 columns, 6,144 px");
   ok(log.includes("VOXELED_READY") && log.includes("VOXELED_SIM_READY") && !log.includes("VOXELED_ERROR"), "viewer + simulator ready, no errors");
   ok(log.includes("VOXELED_HELP"), "?help=1 opens the editor help panel");
+  // the GPU backend: every columns scene has a GLSL twin; the two paths agree to within a few LSB
+  ok(/VOXELED_GPU 7\/7 scene\(s\) on the GPU/.test(log), "GPU: all seven columns scenes compiled to one shader");
+  { const m = log.match(/VOXELED_GPU_DIFF (\d+) max ([\d.]+) mean/); ok(m && +m[1] <= 12 && +m[2] < 1.5, `GPU vs JS on the same frame: ${m ? `max ${m[1]}, mean ${m[2]}` : "no comparison logged"} (of 255)`); }
   // 2. the site example: structures + a panorama come from the fetched files (object URLs), standing at a vantage works
   log = await run("example=site&stand=sidewalk&bearing=0", "static-site");
   ok(/VOXELED_LOCAL_HUB site 3 file\(s\)/.test(log) && log.includes("VOXELED_STRUCTURES_READY 4 of 4") && log.includes("VOXELED_STAND_READY sidewalk"), "site example: 3 files fetched, 4 structures loaded from object URLs, backdrop up");
   // 2b. a screen fixture: LEDs and a texel surface in one scene — drawn as one textured plane
-  log = await run("example=screen&sim=1", "static-screen");
+  log = await run("example=screen&sim=1&gpucheck=1&scene=3", "static-screen");
   ok(/VOXELED_LOCAL_HUB screen \d+ file\(s\) 6720 px/.test(log) && log.includes("VOXELED_SCREENS_READY 1 screen(s) 96x54"), "screen example: two columns + a 96×54 wall (6,720 px), the wall drawn as one plane");
   ok(log.includes("VOXELED_VIDEO_READY poster 192x108"), "the layout's video: poster (a PNG next to the layout) is decoded in the page for the sampler");
+  ok(/VOXELED_GPU 7\/7 scene\(s\) on the GPU/.test(log), "GPU: the sampler scenes (uv, box, projector) and the test card compile too");
+  { const m = log.match(/VOXELED_GPU_DIFF (\d+) max ([\d.]+) mean · (.*)/); ok(m && +m[1] <= 12, `GPU vs JS on the poster scene: ${m ? `max ${m[1]}, mean ${m[2]} · ${m[3].trim()}` : "no comparison logged"}`); }
   ok(!log.includes("VOXELED_ERROR") && !/Uncaught/.test(log), "no page errors with a screen");
   // 3. builder against the in-page hub; a save lands in IndexedDB and is reopened on the next visit
   log = await run("example=columns&build=1&select=0", "static-build");

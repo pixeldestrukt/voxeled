@@ -878,10 +878,11 @@ async function openProject(p) {
   api?.stop?.();
   project = p;
   project.onSave = async (pr) => { await store.putProject(pr); try { localStorage.setItem("voxeled.project", pr.name); } catch {} pstatus(`saved "${pr.name}" in this browser`); console.log("VOXELED_PROJECT_SAVED", pr.name); };
-  api = local.createLocalHub({ project, onFrame: applyFrame, onScene: () => reloadScene(), onMessage: onRemoteMessage });
+  api = local.createLocalHub({ project, onFrame: applyFrame, onScene: () => reloadScene(), onMessage: onRemoteMessage, gpu: qsOn("gpu", true) });
   api.onLive(renderLive);
   buildSceneObjects(api.scene);
-  $("h-dot").classList.add("live"); $("h-bus").lastChild.textContent = "local hub (this page)";
+  $("h-dot").classList.add("live"); $("h-bus").lastChild.textContent = api.gpu?.on ? "local hub · gpu" : "local hub (this page)";
+  if (qsOn("gpucheck", false)) setTimeout(() => { const r = api.gpuCompare?.(); console.log("VOXELED_GPU_DIFF", r ? `${r.max} max ${r.mean.toFixed(2)} mean · ${r.scene}` : "off"); }, 1500);
   $("p-name").textContent = p.name + (p.source ? " · hosted" : "");
   $("p-yaml").value = p.layout;
   renderFiles();

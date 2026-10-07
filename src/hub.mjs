@@ -29,6 +29,7 @@ export function createHub({ scene, shade, pattern, fps = 30, bus = null, senders
   function renderBase(out, t) {
     ctx.t = t;
     ctx.frame = frames;
+    if (render.frame && render.frame(out, t, ctx)) return; // a frame-level renderer (the page's GPU) took it
     for (let k = 0; k < N; k++) {
       const c = render(scene.pixels[k], t, ctx);
       out[k * 3] = to255(c[0]);

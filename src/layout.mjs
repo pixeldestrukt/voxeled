@@ -291,7 +291,7 @@ export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs 
     const blend = L.blend || "over"; if (!BLENDS[blend]) throw new Error(`${where}: blend "${blend}" — blends are ${Object.keys(BLENDS).join(", ")}`);
     const opacity = L.opacity == null ? 1 : Math.max(0, Math.min(1, +L.opacity));
     const mask = new Uint8Array(N); const on = new Set(sel); for (let i = 0; i < N; i++) if (on.has(scene.pixels[i].inst || 0)) mask[i] = 1;
-    return { pattern: L.pattern, render: make(L.params || {}), on: L.on == null ? "all" : L.on, blend, opacity, mask, count: mask.reduce((a, b) => a + b, 0), needs: (typeof make.needs === "function" ? make.needs(L.params || {}) : make.needs) || [] };
+    return { pattern: L.pattern, params: L.params || {}, render: make(L.params || {}), on: L.on == null ? "all" : L.on, blend, opacity, mask, count: mask.reduce((a, b) => a + b, 0), needs: (typeof make.needs === "function" ? make.needs(L.params || {}) : make.needs) || [] };
   };
   const scenes = (showDoc.scenes || []).map((sc, k) => {
     const name = sc.name || sc.pattern || `scene ${k + 1}`;
@@ -308,12 +308,13 @@ export function resolveShow(showDoc, { patterns = {}, scene, instances, fixDefs 
         }
         return [r < 0 ? 0 : r > 1 ? 1 : r, g < 0 ? 0 : g > 1 ? 1 : g, b < 0 ? 0 : b > 1 ? 1 : b]; // blends can overshoot; a pattern's contract is 0..1
       };
-      return { name, render, layers: layers.map(({ pattern, on, blend, opacity, count, needs }) => ({ pattern, on, blend, opacity, count, needs })) };
+      return { name, render, spec: sc, full: layers, layers: layers.map(({ pattern, on, blend, opacity, count, needs }) => ({ pattern, on, blend, opacity, count, needs })) };
     }
     if (!sc.pattern) throw new Error(`scene "${name}" (#${k + 1}): needs a pattern: or layers:`);
     const L = mkLayer(sc, `scene "${name}"`, false);
     const r = L.render, render = (px, t, ctx) => r(px, t, ctx) || BLACK; // alone on a scene, "nothing here" is black
-    return { name, render, needs: L.needs };
+    render.inner = r;
+    return { name, render, spec: sc, needs: L.needs };
   });
   return { scenes, holdS: showDoc.holdS ?? 4, fadeS: showDoc.fadeS ?? 2.5, warnings };
 }
