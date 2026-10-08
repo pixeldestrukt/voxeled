@@ -373,7 +373,7 @@ function xrEnd() {
   scene3.background = sv.bg ?? scene3.background; if (groundGrid && sv.grid != null) groundGrid.visible = sv.grid;
   controls.enabled = sv.orbit ?? true; controls.autoRotate = !!sv.auto;
   try { xr.hitSource?.cancel(); } catch {} xr.hitSource = null; reticle.visible = false;
-  xr.mode = null; xr.saved = null; document.body.classList.remove("xr"); syncBar(); applyMode();
+  xr.mode = null; xr.saved = null; xr.lastPick = null; document.body.classList.remove("xr"); syncBar(); applyMode();
   console.log("VOXELED_XR_END");
 }
 // controllers: a trigger steps the show (VR) or places the piece (AR)
@@ -381,7 +381,7 @@ for (const k of [0, 1]) {
   const c = renderer.xr.getController(k); scene3.add(c);
   c.addEventListener("selectstart", () => {
     if (xr.mode === "ar") { if (reticle.visible) { const p = new THREE.Vector3(), q = new THREE.Quaternion(), sc = new THREE.Vector3(); reticle.matrix.decompose(p, q, sc); const cam = renderer.xr.getCamera().position; xrPlace([p.x, p.y, p.z], Math.atan2(cam.x - p.x, cam.z - p.z)); world.visible = true; console.log("VOXELED_XR_PLACED", p.x.toFixed(2), p.y.toFixed(2), p.z.toFixed(2)); } }
-    else if (barButtons.length) pickScene((currentScene + 1) % barButtons.length, true);
+    else if (barButtons.length) { const next = ((xr.lastPick ?? currentScene) + 1) % barButtons.length; xr.lastPick = next; pickScene(next, true); } // step from the last pick, not the scene still fading in — quick presses keep advancing
   });
 }
 function xrFrame(frame, now) {
